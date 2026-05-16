@@ -89,6 +89,7 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 
 **Databases**
 - **MySQL (standalone tarball)** — downloads the official MySQL 8.4 tarball into `~/.local/share/mac-fresh-setup/mysql/`. No brew, no sudo, no Docker. Installs four wrappers in `~/.local/bin/` for day-to-day control: `mysql-up` (`-p PORT`, `--pass PASS`), `mysql-down`, `mysql-status`, `mysql-cli`. Uninstall has two flavours: **keep data** (only removes binaries) or **wipe everything**.
+- **PostgreSQL (standalone binaries)** — same shape as MySQL but built from the EDB binary distribution (no compile, no brew). Installs to `~/.local/share/mac-fresh-setup/postgres/`. Wrappers in `~/.local/bin/`: `postgres-up` (`-p PORT`, `--pass PASS`), `postgres-down`, `postgres-status`, `postgres-cli`. Trust auth on first install (`postgres` superuser, no password); pass `--pass` to switch to md5 auth.
 
 All modules are idempotent — re-running is safe.
 

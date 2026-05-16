@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""postgres-down: stop the standalone PostgreSQL daemon."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "postgres"
+CONFIG = ROOT / "config.json"
+DATA = ROOT / "data"
+
+
+def _load_config() -> dict:
+    if not CONFIG.exists():
+        sys.exit(
+            "PostgreSQL is not installed. "
+            "Run mac-fresh-setup → Databases → PostgreSQL → Install."
+        )
+    return json.loads(CONFIG.read_text())
+
+
+def _bin(cfg: dict, name: str) -> Path:
+    return Path(cfg["install_dir"]) / "bin" / name
+
+
+def _running() -> bool:
+    pid_file = DATA / "postmaster.pid"
+    if not pid_file.exists():
+        return False
+    try:
+        first_line = pid_file.read_text().splitlines()[0].strip()
+        pid = int(first_line)
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError, IndexError):
+        return False
+
+
+def main() -> None:
+    argparse.ArgumentParser(
+        prog="postgres-down",
+        description="Stop the standalone PostgreSQL daemon (mac-fresh-setup).",
+    ).parse_args()
+
+    cfg = _load_config()
+    if not _running():
+        print("PostgreSQL is not running.")
+        return
+
+    rc = subprocess.run([
+        str(_bin(cfg, "pg_ctl")),
+        "-D", str(DATA),
+        "-m", "fast",
+        "stop",
+    ]).returncode
+    if rc != 0:
+        sys.exit(f"pg_ctl stop failed (rc={rc}).")
+
+    for _ in range(30):
+        if not _running():
+            break
+        time.sleep(0.5)
+    else:
+        sys.exit("PostgreSQL did not stop within 15s.")
+
+    print("PostgreSQL stopped.")
+
+
+if __name__ == "__main__":
+    main()

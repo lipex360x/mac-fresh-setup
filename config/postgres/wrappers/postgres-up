@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""postgres-up: start the standalone PostgreSQL daemon."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "postgres"
+CONFIG = ROOT / "config.json"
+DATA = ROOT / "data"
+RUNTIME = ROOT / "runtime"
+LOG = RUNTIME / "postgres.log"
+
+
+def _load_config() -> dict:
+    if not CONFIG.exists():
+        sys.exit(
+            "PostgreSQL is not installed. "
+            "Run mac-fresh-setup → Databases → PostgreSQL → Install."
+        )
+    return json.loads(CONFIG.read_text())
+
+
+def _save_config(cfg: dict) -> None:
+    CONFIG.write_text(json.dumps(cfg, indent=2))
+    CONFIG.chmod(0o600)
+
+
+def _bin(cfg: dict, name: str) -> Path:
+    return Path(cfg["install_dir"]) / "bin" / name
+
+
+def _running() -> bool:
+    pid_file = DATA / "postmaster.pid"
+    if not pid_file.exists():
+        return False
+    try:
+        first_line = pid_file.read_text().splitlines()[0].strip()
+        pid = int(first_line)
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError, IndexError):
+        return False
+
+
+def _initialize_data(cfg: dict, password: str | None) -> int:
+    print(f"Initializing data dir at {DATA}...")
+    DATA.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        str(_bin(cfg, "initdb")),
+        "-D", str(DATA),
+        "-U", "postgres",
+        "--encoding=UTF-8",
+    ]
+    if password:
+        with tempfile.NamedTemporaryFile("w", delete=False) as pwfile:
+            pwfile.write(password)
+            pw_path = pwfile.name
+        try:
+            cmd.extend(["--auth=md5", f"--pwfile={pw_path}"])
+            rc = subprocess.run(cmd).returncode
+        finally:
+            os.unlink(pw_path)
+        return rc
+    cmd.append("--auth=trust")
+    return subprocess.run(cmd).returncode
+
+
+def _alter_password(cfg: dict, new_pass: str) -> bool:
+    safe = new_pass.replace("'", "''")
+    env = os.environ.copy()
+    if cfg.get("password"):
+        env["PGPASSWORD"] = cfg["password"]
+    cmd = [
+        str(_bin(cfg, "psql")),
+        "-h", "localhost",
+        "-p", str(cfg["port"]),
+        "-U", "postgres",
+        "-d", "postgres",
+        "-c", f"ALTER USER postgres PASSWORD '{safe}';",
+    ]
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Could not change postgres password: {result.stderr.strip()}")
+        return False
+    return True
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="postgres-up",
+        description="Start the standalone PostgreSQL daemon (mac-fresh-setup).",
+    )
+    parser.add_argument(
+        "-p", "--port", type=int,
+        help="Port to listen on. Saved to config; reused by next postgres-up.",
+    )
+    parser.add_argument(
+        "--pass", dest="password",
+        help="Set/change the postgres superuser password. Saved to config.",
+    )
+    args = parser.parse_args()
+
+    cfg = _load_config()
+    if args.port:
+        cfg["port"] = args.port
+        _save_config(cfg)
+
+    if _running():
+        print(f"PostgreSQL is already running on port {cfg['port']}.")
+        return
+
+    just_initialized = False
+    if not DATA.exists() or not (DATA / "PG_VERSION").exists():
+        rc = _initialize_data(cfg, args.password)
+        if rc != 0:
+            sys.exit(f"initdb failed (rc={rc}).")
+        if args.password is not None:
+            cfg["password"] = args.password
+            _save_config(cfg)
+        just_initialized = True
+
+    RUNTIME.mkdir(parents=True, exist_ok=True)
+    rc = subprocess.run([
+        str(_bin(cfg, "pg_ctl")),
+        "-D", str(DATA),
+        "-l", str(LOG),
+        "-o", f"-p {cfg['port']}",
+        "start",
+    ]).returncode
+    if rc != 0:
+        sys.exit(f"pg_ctl start failed (rc={rc}). Check log: {LOG}")
+
+    for _ in range(40):
+        if _running():
+            break
+        time.sleep(0.5)
+    else:
+        sys.exit(f"PostgreSQL did not start within 20s. Check log: {LOG}")
+
+    print(f"PostgreSQL started on port {cfg['port']}.")
+    print(f"Connect: postgres-cli")
+
+    if args.password is not None and not just_initialized:
+        if _alter_password(cfg, args.password):
+            cfg["password"] = args.password
+            _save_config(cfg)
+            print("postgres user password updated and saved to config.")
+
+
+if __name__ == "__main__":
+    main()

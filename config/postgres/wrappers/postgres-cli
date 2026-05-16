@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""postgres-cli: open psql connected to the standalone PostgreSQL instance."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "postgres"
+CONFIG = ROOT / "config.json"
+DATA = ROOT / "data"
+
+
+def _load_config() -> dict:
+    if not CONFIG.exists():
+        sys.exit(
+            "PostgreSQL is not installed. "
+            "Run mac-fresh-setup → Databases → PostgreSQL → Install."
+        )
+    return json.loads(CONFIG.read_text())
+
+
+def _running() -> bool:
+    pid_file = DATA / "postmaster.pid"
+    if not pid_file.exists():
+        return False
+    try:
+        first_line = pid_file.read_text().splitlines()[0].strip()
+        pid = int(first_line)
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError, IndexError):
+        return False
+
+
+def _bin(cfg: dict, name: str) -> Path:
+    return Path(cfg["install_dir"]) / "bin" / name
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="postgres-cli",
+        description=(
+            "Open psql connected to the standalone PostgreSQL instance. "
+            "Extra arguments are forwarded to psql."
+        ),
+    )
+    parser.add_argument(
+        "extra", nargs=argparse.REMAINDER,
+        help="Extra args passed to psql (e.g. -c 'SELECT 1', a database name).",
+    )
+    args = parser.parse_args()
+
+    cfg = _load_config()
+    if not _running():
+        sys.exit("PostgreSQL is not running. Start it with: postgres-up")
+
+    env = os.environ.copy()
+    if cfg.get("password"):
+        env["PGPASSWORD"] = cfg["password"]
+
+    cmd = [
+        str(_bin(cfg, "psql")),
+        "-h", "localhost",
+        "-p", str(cfg["port"]),
+        "-U", "postgres",
+    ]
+    cmd.extend(args.extra)
+    os.execvpe(cmd[0], cmd, env)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""postgres-status: show standalone PostgreSQL state."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "postgres"
+CONFIG = ROOT / "config.json"
+DATA = ROOT / "data"
+RUNTIME = ROOT / "runtime"
+LOG = RUNTIME / "postgres.log"
+
+
+def _load_config() -> dict | None:
+    if not CONFIG.exists():
+        return None
+    return json.loads(CONFIG.read_text())
+
+
+def _running() -> tuple[bool, str]:
+    pid_file = DATA / "postmaster.pid"
+    if not pid_file.exists():
+        return False, ""
+    try:
+        first_line = pid_file.read_text().splitlines()[0].strip()
+        pid = int(first_line)
+        os.kill(pid, 0)
+        return True, str(pid)
+    except (OSError, ValueError, IndexError):
+        return False, ""
+
+
+def main() -> None:
+    argparse.ArgumentParser(
+        prog="postgres-status",
+        description="Show standalone PostgreSQL state (mac-fresh-setup).",
+    ).parse_args()
+
+    cfg = _load_config()
+    if cfg is None:
+        sys.exit("PostgreSQL is not installed.")
+
+    print(f"Version:     {cfg['version']}")
+    print(f"Install dir: {cfg['install_dir']}")
+    print(f"Data dir:    {DATA}")
+    print(f"Port:        {cfg['port']}")
+    print(f"Password:    {'(set)' if cfg.get('password') else '(empty / trust auth)'}")
+
+    running, pid = _running()
+    if running:
+        print(f"State:       running (PID {pid})")
+        print(f"Log:         {LOG}")
+    else:
+        print("State:       stopped")
+
+
+if __name__ == "__main__":
+    main()

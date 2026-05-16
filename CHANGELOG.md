@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
 
+### Added (PostgreSQL)
+- Second module under Databases: **PostgreSQL (standalone binaries)** (`src/modules/databases/postgres.py`). Mirrors the MySQL design end-to-end — same install/uninstall flow, same wrapper pattern, same config.json shape.
+- Install path: downloads `https://get.enterprisedb.com/postgresql/postgresql-17.4-1-osx-binaries.zip` (EDB binary distribution, no source compile), extracts to `~/.local/share/mac-fresh-setup/postgres/installs/17.4/pgsql/`. PostgreSQL doesn't have an official tarball on `postgresql.org` for macOS so EDB is the de-facto portable distribution; same publisher provides `windows-x64-binaries.zip` for the future Windows variant.
+- Wrappers in `~/.local/bin/`: `postgres-up [-p PORT] [--pass PASS] [-h]`, `postgres-down [-h]`, `postgres-status [-h]`, `postgres-cli [args] [-h]`. Same flag semantics as the MySQL wrappers. First run initialises the data dir via `initdb -U postgres`; with `--pass` it uses `initdb --pwfile` + `md5` auth, otherwise `trust` auth (localhost-only by default).
+- Subsequent password changes flow through `ALTER USER postgres PASSWORD '...'` via `psql` (uses `PGPASSWORD` from config to authenticate).
+- Stop is graceful via `pg_ctl -m fast stop`. Status reads `postmaster.pid` (first line is the PID) for the running check.
+- Action picker: Install / Status / Start / Stop / Uninstall (keep data) / Uninstall (wipe). Start/Stop delegate to the wrappers — same happy-path-in-menu / advanced-in-CLI split as MySQL.
+
 ### Added (Databases category)
 - New category **Databases** with the first module: **MySQL (standalone tarball)** (`src/modules/databases/mysql.py`).
 - Install path: downloads the official tarball from `dev.mysql.com/get/Downloads/MySQL-8.4/mysql-8.4.3-<platform>.tar.gz` (default version `8.4.3`, current LTS), extracts into `~/.local/share/mac-fresh-setup/mysql/installs/8.4.3/`. No brew, no Mise, no sudo, no Docker — fully user-level.
