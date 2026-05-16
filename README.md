@@ -24,7 +24,9 @@ uv --version
 uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py"
 ```
 
-`uv` downloads `setup.py`, resolves the inline dependencies (PEP 723) and runs it. An interactive menu appears — pick the modules you want (space to toggle, enter to confirm).
+`uv` downloads `setup.py`, resolves the inline dependencies (PEP 723) and runs it. `setup.py` then fetches the rest of the source tree (`src/`) from a tarball into a temp directory and hands off to the interactive menu.
+
+The menu is a hub: pick a **category**, then pick a **module** inside it, run it, return to the submenu. `← Back` returns to the main menu; `Exit` closes the app.
 
 ### Dry-run
 
@@ -50,15 +52,26 @@ If GitHub's CDN is still serving the old blob, append a cache-buster query (the 
 uv run --refresh "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py?v=$RANDOM"
 ```
 
-## Current stage (v0.1)
+## Pinning to a tag
 
+By default the bootstrap fetches the `main` branch. To run a specific release:
+
+```sh
+MAC_FRESH_SETUP_REF=v0.1.0 uv run --refresh "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py"
+```
+
+The env var controls only the tarball ref; the `setup.py` URL itself can stay on `main` (it's the same ~55-line bootstrap regardless of version).
+
+## Modules available
+
+**System**
 - **Grant Root Access** — adds the current user to `/etc/sudoers.d` with `NOPASSWD`.
 - **SSH Key** — generates `~/.ssh/id_rsa` (RSA 4096) if missing, fixes permissions, prints the public key to paste into GitHub.
 
-Modules are idempotent — re-running is safe.
+All modules are idempotent — re-running is safe.
 
 ## Roadmap
 
-Not in this version: XCode CLI, Homebrew + formulae/casks, Oh-my-zsh + Spaceship, asdf languages, VSCode extensions, git config + `gh auth`.
+Not implemented yet: XCode CLI, Homebrew + formulae/casks, Oh-my-zsh + Spaceship, asdf languages, VSCode extensions, git config + `gh auth`.
 
-Source reference: `docs/fresh-install.md`.
+See `CHANGELOG.md` for the full history. Source reference: `docs/fresh-install.md`.
