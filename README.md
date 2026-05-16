@@ -85,7 +85,10 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 - **Homebrew casks** — checkbox menu of GUI apps (`iterm2`); installs the selected ones via `brew install --cask`.
 
 **Styling**
-- **iTerm2 preferences** — downloads a plist from `$ITERM2_PREFS_URL` (or a prompted URL / local path) and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, then runs `killall cfprefsd` so the new prefs are loaded on the next iTerm2 launch. Falls back to `~/Downloads/com.googlecode.iterm2.plist` with manual import instructions if direct write is blocked.
+- **iTerm2 preferences** — downloads the bundled plist from `config/iterm2/com.googlecode.iterm2.plist` (override with `ITERM2_PREFS_URL`) and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, then runs `killall cfprefsd`. Falls back to `~/Downloads/` with manual import instructions if direct write is blocked.
+- **Oh-my-zsh** — runs the official installer with `RUNZSH=no CHSH=no KEEP_ZSHRC=yes`.
+- **Spaceship theme** — clones `denysdovhan/spaceship-prompt` under `$ZSH_CUSTOM/themes` and symlinks the theme file.
+- **Custom .zshrc** — replaces `~/.zshrc` with the bundled `config/zsh/.zshrc` (Spaceship + zinit plugins + mise activation; no aliases). Override with `ZSHRC_URL`.
 
 ### Exporting your iTerm2 prefs from another Mac
 

@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed (layout)
 - `src/modules/` now nests one subdirectory per category: `system/`, `package_manager/`, `styling/`, `editor/`. Internal module imports (`from console import console`, etc.) unchanged — `src/` is the sys.path root, the new subdirs are just import namespaces. `src/categories.py` imports each module from its category package.
 
+### Added (Styling — zsh stack)
+- Module **Oh-my-zsh** (`src/modules/styling/oh_my_zsh.py`) — fetches the official `install.sh` and pipes into `sh` with `RUNZSH=no CHSH=no KEEP_ZSHRC=yes` so the install doesn't open a new shell, doesn't switch the user's default shell, and doesn't overwrite an existing `~/.zshrc`. Idempotency via `~/.oh-my-zsh/oh-my-zsh.sh` presence check.
+- Module **Spaceship theme** (`src/modules/styling/spaceship.py`) — `git clone --depth 1 denysdovhan/spaceship-prompt` into `~/.oh-my-zsh/custom/themes/spaceship-prompt`, then symlinks `spaceship.zsh-theme` into the OMZ themes dir so `ZSH_THEME="spaceship"` resolves. Idempotency check on both the clone and the symlink.
+- Module **Custom .zshrc** (`src/modules/styling/zshrc.py`) — same pattern as iTerm2 prefs: defaults to the in-repo `config/zsh/.zshrc`, overrides via `ZSHRC_URL`. Backs up the existing `~/.zshrc` before writing.
+- Added `config/zsh/.zshrc` — bundled config replicating the maintainer's styling-only setup: OMZ defaults, Spaceship prompt with custom order and colors, terminal-title hook, zinit auto-bootstrap with three plugins (`fast-syntax-highlighting`, `zsh-autosuggestions`, `zsh-completions`), and conditional `mise activate zsh`. **No** aliases or `~/.zsh_script/*` sourcing — keeping the bundle minimal until the Languages/aliases work lands.
+- Added `font-fira-code` to the curated Homebrew casks list — needed by iTerm2 (which expects `FiraCode-Regular 12` per the bundled plist) and renders Spaceship's powerline glyphs properly.
+
 ### Added (Editor category)
 - New category **Editor** with two modules under `src/modules/editor/`:
   - **VSCode extensions** (`vscode_extensions.py`) — checkbox of curated extensions (`dbaeumer.vscode-eslint`, `esbenp.prettier-vscode`, `eamodio.gitlens`); already-installed greyed out via `code --list-extensions`; installs via `code --install-extension <id>` with live output.
