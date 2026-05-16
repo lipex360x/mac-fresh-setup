@@ -171,6 +171,93 @@ php -S localhost:8000
 - **Wrong PHP version active**: `mise current php` shows the global default, `mise use -g php@8.3` re-pins it.
 - **Need a different version**: edit `Runtime("PHP 8.3", "php@8.3", ...)` in `mise_runtimes.py` to whatever you want (`php@8.4`, `php@8.2`, etc.) and re-run the module.
 
+## Running Java (with Maven / Gradle) after installing it
+
+Unlike PHP, Mise's Java install **does not compile from source** — it downloads the pre-built Temurin JDK tarball from Adoptium. First install takes ~1 minute.
+
+### 1. Install
+
+Package manager → Mise runtimes → Install → check `Java LTS (Temurin 25)` (and optionally `Maven latest` / `Gradle latest`) → enter. No brew prerequisites needed.
+
+### 2. Pick up `java` in the shell
+
+Open a **new** terminal so `~/.zshrc` runs and `mise activate zsh` puts the shims on `PATH`. Verify:
+
+```sh
+which java
+# expected: /Users/you/.local/share/mise/shims/java
+
+java -version
+# expected: openjdk version "25.x.x" 2025-09-... + "Temurin-25..."
+
+javac -version
+# expected: javac 25.x.x
+
+echo $JAVA_HOME
+# expected: /Users/you/.local/share/mise/installs/java/temurin-25.x.x
+```
+
+`JAVA_HOME` is set automatically by `mise activate zsh` — required by Maven, Gradle, IntelliJ, etc.
+
+### 3. Compile and run
+
+**One-off file** (JDK 11+ accepts source-file mode, no separate compile step):
+
+```sh
+cat > Hello.java <<'EOF'
+public class Hello {
+    public static void main(String[] args) {
+        System.out.println("hi from " + System.getProperty("java.version"));
+    }
+}
+EOF
+
+java Hello.java
+# expected: hi from 25.x.x
+```
+
+Or the classic two-step:
+
+```sh
+javac Hello.java   # produces Hello.class
+java Hello         # runs the class (no .class extension)
+```
+
+### 4. With Maven
+
+```sh
+mvn --version                                  # confirms Maven sees JAVA_HOME
+
+mvn archetype:generate \
+  -DgroupId=com.example \
+  -DartifactId=demo \
+  -DarchetypeArtifactId=maven-archetype-quickstart \
+  -DinteractiveMode=false
+
+cd demo
+mvn package                                    # produces target/demo-1.0-SNAPSHOT.jar
+java -cp target/demo-1.0-SNAPSHOT.jar com.example.App
+```
+
+### 5. With Gradle
+
+```sh
+gradle --version                               # confirms Gradle sees JAVA_HOME
+
+mkdir demo && cd demo
+gradle init --type java-application --dsl groovy --no-incubating-report
+
+gradle run                                     # build + run the generated App
+```
+
+### Troubleshooting
+
+- **`java` not found after install**: you forgot to reopen the shell. Open a new terminal or `source ~/.zshrc`.
+- **`JAVA_HOME` empty**: `mise activate zsh` isn't running. Confirm `eval "$(mise activate zsh)"` is in `~/.zshrc` (the bundled file ships with it).
+- **Maven/Gradle reports the wrong Java**: `mise current java` shows the global default, `mise use -g java@temurin-25` re-pins. Project-local override: drop a `.mise.toml` in the project root with `[tools] java = "temurin-25"`.
+- **Need another distribution**: edit `Runtime("Java LTS (Temurin 25)", "java@temurin-25", ...)` in `src/modules/package_manager/mise_runtimes.py` to e.g. `java@corretto-25`, `java@zulu-25`, `java@graalvm-25`, etc.
+- **Compile/run a quick example without writing files**: `jshell` opens the REPL (`exit` to leave).
+
 ## See also
 
 - `CHANGELOG.md` — full history (versions are progress checkpoints; git tags only for milestones).
