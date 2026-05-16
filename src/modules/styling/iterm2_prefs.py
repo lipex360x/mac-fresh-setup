@@ -126,4 +126,5 @@ module = Module(
     title="iTerm2 preferences",
     description="Inject iTerm2 plist (with cfprefsd cache invalidation); falls back to ~/Downloads if blocked.",
     run=sync_iterm2_prefs,
+    platforms=frozenset({"darwin"}),
 )

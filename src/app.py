@@ -28,13 +28,22 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _preflight() -> None:
-    if sys.platform != "darwin":
-        console.print("[red]This script targets macOS only.[/red]")
+    if sys.platform not in {"darwin", "linux", "win32"}:
+        console.print(f"[red]Unsupported platform: {sys.platform}[/red]")
         sys.exit(1)
-    for binary in ("sudo", "ssh-keygen"):
-        if shutil.which(binary) is None:
-            console.print(f"[red]Required binary not found in PATH: {binary}[/red]")
-            sys.exit(1)
+    if sys.platform == "darwin":
+        for binary in ("sudo", "ssh-keygen"):
+            if shutil.which(binary) is None:
+                console.print(f"[red]Required binary not found in PATH: {binary}[/red]")
+                sys.exit(1)
+
+
+def _supported_modules(category: Category) -> tuple[Module, ...]:
+    return tuple(m for m in category.modules if sys.platform in m.platforms)
+
+
+def _supported_categories() -> list[Category]:
+    return [c for c in CATEGORIES if _supported_modules(c)]
 
 
 def _run_module(module: Module) -> None:
@@ -52,7 +61,8 @@ def _run_module(module: Module) -> None:
 
 def _category_menu(category: Category) -> None:
     while True:
-        choices = [questionary.Choice(title=m.title, value=m.key) for m in category.modules]
+        modules = _supported_modules(category)
+        choices = [questionary.Choice(title=m.title, value=m.key) for m in modules]
         choices.append(questionary.Choice(title="← Back", value="__back"))
         answer = questionary.select(
             f"{category.title} — pick a module:",
@@ -61,7 +71,7 @@ def _category_menu(category: Category) -> None:
         ).ask()
         if answer in (None, "__back"):
             return
-        module = next(m for m in category.modules if m.key == answer)
+        module = next(m for m in modules if m.key == answer)
         _run_module(module)
 
 
@@ -78,7 +88,8 @@ def run(argv: list[str] | None = None) -> None:
     console.print(Panel.fit(banner, border_style="cyan"))
 
     while True:
-        choices = [questionary.Choice(title=c.title, value=c.key) for c in CATEGORIES]
+        categories = _supported_categories()
+        choices = [questionary.Choice(title=c.title, value=c.key) for c in categories]
         choices.append(questionary.Choice(title="Exit", value="__exit"))
         answer = questionary.select(
             "Pick a category:",
@@ -88,5 +99,5 @@ def run(argv: list[str] | None = None) -> None:
         if answer in (None, "__exit"):
             console.rule("[bold green]Bye[/bold green]")
             return
-        category = next(c for c in CATEGORIES if c.key == answer)
+        category = next(c for c in categories if c.key == answer)
         _category_menu(category)

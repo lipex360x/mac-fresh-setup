@@ -78,4 +78,5 @@ module = Module(
     title="Grant Root Access",
     description="Adds the current user to /etc/sudoers.d with NOPASSWD.",
     run=grant_root_access,
+    platforms=frozenset({"darwin", "linux"}),
 )

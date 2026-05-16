@@ -161,4 +161,5 @@ module = Module(
     title="Homebrew",
     description="Installs Homebrew (NONINTERACTIVE=1) and wires `brew shellenv` into ~/.zprofile.",
     run=install_homebrew,
+    platforms=frozenset({"darwin", "linux"}),
 )

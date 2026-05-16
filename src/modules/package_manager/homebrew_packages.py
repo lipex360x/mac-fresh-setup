@@ -28,6 +28,7 @@ class Package:
 PACKAGES: list[Package] = [
     Package("brave-browser", "cask", "Brave — privacy-focused Chromium browser"),
     Package("the-unarchiver", "cask", "Archive utility for zip, rar, 7z, tar.gz"),
+    Package("git", "formula", "Git — version control system (newer than the XCode CLT bundled git)"),
     Package("gh", "formula", "GitHub CLI — auth, PRs, issues, gists from the terminal"),
     Package("mise", "formula", "Polyglot runtime/version manager — handles node/python/java (asdf successor)"),
     Package("font-fira-code", "cask", "Fira Code monospace font with programming ligatures"),
@@ -233,4 +234,5 @@ module = Module(
     title="Homebrew packages",
     description="Pick formulae and casks from a single curated list (casks marked with [cask]).",
     run=install_homebrew_packages,
+    platforms=frozenset({"darwin", "linux"}),
 )

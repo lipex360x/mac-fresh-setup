@@ -20,4 +20,5 @@ module = Module(
     title="Zsh stack (OMZ + Spaceship + .zshrc)",
     description="Runs Oh-my-zsh, Spaceship theme, and the bundled .zshrc sync in one go.",
     run=install_zsh_stack,
+    platforms=frozenset({"darwin", "linux"}),
 )

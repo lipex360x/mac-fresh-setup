@@ -84,6 +84,28 @@ Runtime("Go latest", "go@latest", "Go toolchain — rolling release"),
 
 That's it. No category change, no registration step, no test scaffolding required (the smoke runner picks it up automatically).
 
+## Cross-platform model
+
+The project is single-codebase, OS-aware. The Module dataclass carries a `platforms: frozenset[str]` field (`"darwin"`, `"linux"`, `"win32"`). The main menu filters categories+modules through `sys.platform` once at the top — downstream code never branches on the OS. Each module is "OS-pure": `homebrew_*` assumes brew, future `scoop_*` assumes scoop, `mysql`/`postgres`/`mise_runtimes`/`vscode_stack`/`claude_code`/`ssh_key` work the same everywhere because the underlying tools do.
+
+Equivalence map (planned for Windows):
+
+| Concept | macOS / Linux | Windows |
+|---|---|---|
+| Package manager | Homebrew (brew install / brew install --cask) | Scoop or winget |
+| Privilege grant | sudoers NOPASSWD | (n/a — UAC is different model, likely skipped) |
+| Dev toolchain | XCode CLT (clang, git, make, headers) | Git for Windows (bundles bash, git, curl, tar, unzip, ssh-keygen, openssl) |
+| Terminal styling | iTerm2 plist | Windows Terminal settings.json |
+| Shell stack | Oh-my-zsh + Spaceship + zinit | Oh-my-posh (works in PowerShell + git-bash) |
+| `mise activate` line in shell init | `~/.zshrc` | `$PROFILE` for PowerShell, `~/.bashrc` for git-bash |
+| Wrapper location | `~/.local/bin/<name>` | `~/.local/bin/<name>` + `<name>.cmd` shim (so PATH finds it from cmd/PowerShell) |
+
+When OS-specific data does belong inside a universal module, use a small dispatch table at the module top — never an `if sys.platform` halfway through a function:
+
+```python
+ARCHIVE_EXT = {"darwin": "tar.gz", "linux": "tar.gz", "win32": "zip"}[sys.platform]
+```
+
 ## Conventions
 
 - Each module must be idempotent (check before acting)

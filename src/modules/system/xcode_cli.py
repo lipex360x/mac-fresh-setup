@@ -225,4 +225,5 @@ module = Module(
     title="XCode Command Line Tools",
     description="Installs Command Line Tools via softwareupdate (live progress) with GUI dialog fallback.",
     run=install_xcode_cli,
+    platforms=frozenset({"darwin"}),
 )
