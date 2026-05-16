@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -15,9 +16,33 @@ from models import Module
 from runtime import runtime
 from safe import mutating_check, mutating_run
 
-_SETTINGS_PATH = (
-    Path.home() / "Library" / "Application Support" / "Code" / "User" / "settings.json"
-)
+
+def _settings_path() -> Path:
+    home = Path.home()
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support" / "Code" / "User" / "settings.json"
+    if sys.platform == "win32":
+        return home / "AppData" / "Roaming" / "Code" / "User" / "settings.json"
+    return home / ".config" / "Code" / "User" / "settings.json"
+
+
+def _bundled_code_paths() -> list[Path]:
+    home = Path.home()
+    if sys.platform == "darwin":
+        return [
+            Path("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code")
+        ]
+    if sys.platform == "win32":
+        return [
+            home / "scoop" / "apps" / "vscode" / "current" / "bin" / "code.cmd",
+            home / "scoop" / "shims" / "code.cmd",
+            home / "AppData" / "Local" / "Programs" / "Microsoft VS Code" / "bin" / "code.cmd",
+            Path(r"C:\Program Files\Microsoft VS Code\bin\code.cmd"),
+        ]
+    return []
+
+
+_SETTINGS_PATH = _settings_path()
 _SETTINGS_URL = (
     "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/"
     "config/vscode/settings.json"
@@ -26,23 +51,34 @@ _EXTENSIONS_URL = (
     "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/"
     "config/vscode/extensions.txt"
 )
-_BUNDLED_CODE = Path(
-    "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
-)
 
 
 def _code_binary() -> Path | None:
     found = shutil.which("code")
     if found:
         return Path(found)
-    if _BUNDLED_CODE.exists():
-        return _BUNDLED_CODE
+    for candidate in _bundled_code_paths():
+        if candidate.exists():
+            return candidate
     return None
+
+
+def _code_cmd(code_bin: Path, args: list[str]) -> list[str]:
+    """Build a subprocess argv for the VSCode CLI.
+
+    On Windows the `code` CLI is a .cmd shim (Scoop / official installer).
+    Python's CreateProcessW only resolves .exe directly, so we need to
+    invoke it through `cmd /c`.
+    """
+    base = [str(code_bin), *args]
+    if sys.platform == "win32":
+        return ["cmd", "/c", *base]
+    return base
 
 
 def _installed_extensions(code_bin: Path) -> set[str]:
     result = subprocess.run(
-        [str(code_bin), "--list-extensions"],
+        _code_cmd(code_bin, ["--list-extensions"]),
         capture_output=True,
         text=True,
     )
@@ -94,7 +130,7 @@ def _install_extensions(code_bin: Path) -> None:
     )
     for ext_id in pending:
         console.rule(f"[bold]{code_bin.name} --install-extension {ext_id}[/bold]")
-        result = mutating_run([str(code_bin), "--install-extension", ext_id])
+        result = mutating_run(_code_cmd(code_bin, ["--install-extension", ext_id]))
         if result.returncode != 0:
             console.print(
                 f"[red]Failed to install {ext_id} (rc={result.returncode}).[/red]"
@@ -117,10 +153,11 @@ def _sync_settings() -> None:
         shutil.copyfile(_SETTINGS_PATH, backup)
         console.print(f"[dim]Existing settings backed up to {backup}.[/dim]")
     _SETTINGS_PATH.write_bytes(data)
+    palette_key = "⌘⇧P" if sys.platform == "darwin" else "Ctrl+Shift+P"
     console.print(
         Panel.fit(
             f"[green]VSCode settings written to[/green] [bold]{_SETTINGS_PATH}[/bold].\n"
-            "Reload the window (⌘⇧P → Developer: Reload Window) to apply.",
+            f"Reload the window ({palette_key} → Developer: Reload Window) to apply.",
             border_style="green",
         )
     )
@@ -129,10 +166,15 @@ def _sync_settings() -> None:
 def install_vscode_stack() -> None:
     code_bin = _code_binary()
     if code_bin is None:
+        installer_hint = (
+            "[bold]vscode[/bold] via Package manager → Scoop packages"
+            if sys.platform == "win32"
+            else "[bold]visual-studio-code[/bold] via Package manager → Homebrew packages"
+        )
+        palette_key = "⌘⇧P" if sys.platform == "darwin" else "Ctrl+Shift+P"
         console.print(
-            "[red]VSCode `code` CLI not found.[/red] Install "
-            "[bold]visual-studio-code[/bold] via Package manager → Homebrew "
-            "packages first, or run [dim]Cmd+Shift+P → Shell Command: "
+            f"[red]VSCode `code` CLI not found.[/red] Install {installer_hint} "
+            f"first, or run [dim]{palette_key} → Shell Command: "
             "Install 'code' command in PATH[/dim] inside VSCode."
         )
         return
