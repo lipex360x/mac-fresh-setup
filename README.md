@@ -9,8 +9,12 @@
 - [Recommended order on a fresh Mac](#recommended-order-on-a-fresh-mac)
 - [Modules available](#modules-available)
 - [Runtime runbooks](#runtime-runbooks)
+  - [Running Node.js](#running-nodejs)
+  - [Running Bun](#running-bun)
+  - [Running Java](#running-java)
+  - [Running Maven](#running-maven)
+  - [Running Gradle](#running-gradle)
   - [Running PHP](#running-php)
-  - [Running Java with Maven and Gradle](#running-java-with-maven-and-gradle)
 - [Adding new items](#adding-new-items)
 - [Bootstrap flags and overrides](#bootstrap-flags-and-overrides)
 - [See also](#see-also)
@@ -90,7 +94,240 @@ All modules are idempotent — re-running is safe.
 ## Runtime runbooks
 
 > [!IMPORTANT]
-> After installing **any** runtime (PHP, Java, Node, Bun…), open a **new** terminal so `~/.zshrc` runs and `mise activate zsh` puts the shims on your `PATH`. `which <tool>` should report the mise shim at `~/.local/share/mise/shims/...`. The two runbooks below assume you've already done this.
+> After installing **any** runtime (Node, Bun, Java, Maven, Gradle, PHP…), open a **new** terminal so `~/.zshrc` runs and `mise activate zsh` puts the shims on your `PATH`. `which <tool>` should report the mise shim at `~/.local/share/mise/shims/...`. All runbooks below assume you've already done this.
+
+### Running Node.js
+
+Mise installs Node.js from prebuilt binaries — fast (~30 s) and no compile.
+
+#### 1. Install via the menu
+
+Package manager → Mise runtimes → Install → check `Node.js LTS` → enter.
+
+#### 2. Verify
+
+```sh
+which node       # expected: /Users/you/.local/share/mise/shims/node
+node --version   # expected: v22.x.x (or whatever the current LTS major is)
+npm --version    # ships with Node
+npx --version    # ships with Node
+```
+
+#### 3. Run something
+
+```sh
+node script.js                                 # one-off script
+node                                           # REPL
+node --eval "console.log(2 + 2)"               # one-liner
+
+# tiny dev server
+node --eval "require('http').createServer((_, r)=>r.end('hi')).listen(3000)"
+
+# scaffold a new package
+npm init -y && npm install --save-dev typescript
+```
+
+#### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `node` not found after install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
+| `npm` install fails on a global package | Mise's Node shim is per-user — never use `sudo npm install -g`. Just `npm install -g <pkg>`. |
+| Need a specific Node major (e.g. 20) | `mise use -g node@20` from the terminal; or edit the `Runtime` entry to `node@20` and re-run the module. |
+| Project pinning | Drop a `.mise.toml` in the project with `[tools] node = "lts"` or a specific version. |
+
+### Running Bun
+
+Mise installs Bun from a prebuilt binary — fastest of the runtimes (~10 s).
+
+#### 1. Install via the menu
+
+Package manager → Mise runtimes → Install → check `Bun latest` → enter.
+
+#### 2. Verify
+
+```sh
+which bun        # expected: /Users/you/.local/share/mise/shims/bun
+bun --version    # expected: 1.x.x
+```
+
+#### 3. Run something
+
+Bun is a Node-compatible runtime, package manager, bundler, and test runner. Single binary:
+
+```sh
+bun script.ts                                  # runs TypeScript directly, no compile step
+bun script.js
+bun repl
+
+bun init                                       # scaffold a project
+bun add hono                                   # add a dependency
+bun run dev                                    # run a package.json script
+
+bun test                                       # run tests
+bun build ./index.ts --outdir ./dist           # bundle for prod
+```
+
+#### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `bun` not found after install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
+| `npm install` style command | Bun's equivalent is `bun add <pkg>` (or `bun install` to materialise `package.json`). |
+| Bun and Node both installed — which wins | Whichever runs the script. `bun script.ts` uses Bun; `node script.ts` (with `tsx` or `ts-node`) uses Node. They don't conflict. |
+| Need an older Bun | Edit the `Runtime` entry to `bun@1.1.x` and re-run the module. |
+
+### Running Java
+
+> [!NOTE]
+> **Maven** and **Gradle** are separate Mise entries with their own runbooks below ([Running Maven](#running-maven), [Running Gradle](#running-gradle)) — install them through the same picker. Both depend on Java being set up first.
+
+Unlike PHP, Mise's Java install **does not compile from source** — it downloads the pre-built Temurin JDK tarball from Adoptium. First install takes ~1 minute. No brew prerequisites needed.
+
+#### 1. Install via the menu
+
+Package manager → Mise runtimes → Install → check `Java LTS (Temurin 25)` → enter.
+
+#### 2. Verify
+
+```sh
+which java        # expected: /Users/you/.local/share/mise/shims/java
+java -version     # expected: openjdk version "25.x.x" ... + "Temurin-25..."
+javac -version    # expected: javac 25.x.x
+echo $JAVA_HOME   # expected: /Users/you/.local/share/mise/installs/java/temurin-25.x.x
+```
+
+`JAVA_HOME` is set automatically by `mise activate zsh` and is required by Maven, Gradle, IntelliJ, etc.
+
+#### 3. Compile and run
+
+JDK 11+ accepts source-file mode (no separate compile step):
+
+```sh
+cat > Hello.java <<'EOF'
+public class Hello {
+    public static void main(String[] args) {
+        System.out.println("hi from " + System.getProperty("java.version"));
+    }
+}
+EOF
+
+java Hello.java       # expected: hi from 25.x.x
+```
+
+Classic two-step:
+
+```sh
+javac Hello.java   # produces Hello.class
+java Hello         # runs the class (no .class extension)
+```
+
+Want a REPL without writing files: `jshell` (`/exit` to leave).
+
+#### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `java` not found after install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
+| `JAVA_HOME` empty | `mise activate zsh` isn't running. Confirm `eval "$(mise activate zsh)"` is in `~/.zshrc` (the bundled file ships with it). |
+| Wrong Java reported by Maven/Gradle/IntelliJ | `mise current java` shows the global default; `mise use -g java@temurin-25` re-pins. Project-local override: drop a `.mise.toml` with `[tools] java = "temurin-25"`. |
+| Need another distribution | Edit `Runtime("Java LTS (Temurin 25)", "java@temurin-25", ...)` in `mise_runtimes.py` to e.g. `java@corretto-25`, `java@zulu-25`, `java@graalvm-25`. |
+
+### Running Maven
+
+> [!NOTE]
+> Maven needs Java. Install it first via the [Java runbook](#running-java).
+
+#### 1. Install via the menu
+
+Package manager → Mise runtimes → Install → check `Maven latest` → enter.
+
+#### 2. Verify
+
+```sh
+which mvn       # expected: /Users/you/.local/share/mise/shims/mvn
+mvn --version   # confirms version + the JAVA_HOME it sees
+```
+
+The bottom of `mvn --version` should reference your mise Java install (`/Users/you/.local/share/mise/installs/java/temurin-25.x.x`).
+
+#### 3. Scaffold and build a project
+
+```sh
+mvn archetype:generate \
+  -DgroupId=com.example \
+  -DartifactId=demo \
+  -DarchetypeArtifactId=maven-archetype-quickstart \
+  -DinteractiveMode=false
+
+cd demo
+mvn package                                                  # produces target/demo-1.0-SNAPSHOT.jar
+java -cp target/demo-1.0-SNAPSHOT.jar com.example.App
+```
+
+Useful goals:
+
+```sh
+mvn compile                                                  # compile sources only
+mvn test                                                     # run unit tests
+mvn package                                                  # build the jar
+mvn clean install                                            # full rebuild + install to ~/.m2/repository
+mvn dependency:tree                                          # show resolved dependencies
+mvn versions:display-dependency-updates                      # find outdated deps
+```
+
+#### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `mvn` not found after install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
+| `mvn --version` reports a different JDK | `mise current java` not set, or `JAVA_HOME` overridden by something else in your shell init. Run `mise use -g java@temurin-25`, reopen the shell. |
+| `Could not find or load main class` | Forgot to `mvn package` after editing; or the `-cp` argument doesn't point at the freshly built jar. |
+| Slow first build | Maven downloads its plugin/dependency tree into `~/.m2/repository` on first use — that's normal. |
+
+### Running Gradle
+
+> [!NOTE]
+> Gradle needs Java. Install it first via the [Java runbook](#running-java).
+
+#### 1. Install via the menu
+
+Package manager → Mise runtimes → Install → check `Gradle latest` → enter.
+
+#### 2. Verify
+
+```sh
+which gradle       # expected: /Users/you/.local/share/mise/shims/gradle
+gradle --version   # confirms version + the JVM it sees
+```
+
+#### 3. Scaffold and build a project
+
+```sh
+mkdir demo && cd demo
+gradle init --type java-application --dsl groovy --no-incubating-report
+gradle run                                                   # builds + runs the generated App
+```
+
+Useful tasks:
+
+```sh
+gradle build                                                 # full build + tests + jar
+gradle test                                                  # run unit tests
+gradle run                                                   # run the application (java-application template)
+gradle clean                                                 # remove build/
+gradle tasks                                                 # list all available tasks
+gradle dependencies                                          # full dependency tree
+```
+
+#### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `gradle` not found after install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
+| Gradle daemon issues / hung build | `gradle --stop` kills daemons; rerun the task. |
+| Project uses the wrapper (`./gradlew`) | Use the project's `./gradlew` instead of the system `gradle` — the wrapper pins the exact Gradle version per project. The system `gradle` is for `gradle init` and ad-hoc tasks. |
+| Slow first run | Gradle downloads its distribution + plugin cache into `~/.gradle/` on first use — that's normal. |
 
 ### Running PHP
 
@@ -134,85 +371,6 @@ php -S localhost:8000             # built-in dev server serving cwd at http://lo
 | `php` not found after a successful install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
 | Wrong PHP version active | `mise current php` shows the global default; `mise use -g php@8.3` re-pins. |
 | Need a different version | Edit `Runtime("PHP 8.3", "php@8.3", ...)` in `src/modules/package_manager/mise_runtimes.py` (e.g. `php@8.4`, `php@8.2`) and re-run the module. |
-
-### Running Java with Maven and Gradle
-
-Unlike PHP, Mise's Java install **does not compile from source** — it downloads the pre-built Temurin JDK tarball from Adoptium. First install takes ~1 minute. No brew prerequisites needed.
-
-#### 1. Install via the menu
-
-Package manager → Mise runtimes → Install → check `Java LTS (Temurin 25)` (and optionally `Maven latest` / `Gradle latest`) → enter.
-
-#### 2. Verify
-
-```sh
-which java        # expected: /Users/you/.local/share/mise/shims/java
-java -version     # expected: openjdk version "25.x.x" ... + "Temurin-25..."
-javac -version    # expected: javac 25.x.x
-echo $JAVA_HOME   # expected: /Users/you/.local/share/mise/installs/java/temurin-25.x.x
-```
-
-`JAVA_HOME` is set automatically by `mise activate zsh` and is required by Maven, Gradle, IntelliJ, etc.
-
-#### 3. Compile and run
-
-JDK 11+ accepts source-file mode (no separate compile step):
-
-```sh
-cat > Hello.java <<'EOF'
-public class Hello {
-    public static void main(String[] args) {
-        System.out.println("hi from " + System.getProperty("java.version"));
-    }
-}
-EOF
-
-java Hello.java       # expected: hi from 25.x.x
-```
-
-Classic two-step:
-
-```sh
-javac Hello.java   # produces Hello.class
-java Hello         # runs the class (no .class extension)
-```
-
-#### 4. With Maven
-
-```sh
-mvn --version                                  # confirms Maven sees JAVA_HOME
-
-mvn archetype:generate \
-  -DgroupId=com.example \
-  -DartifactId=demo \
-  -DarchetypeArtifactId=maven-archetype-quickstart \
-  -DinteractiveMode=false
-
-cd demo
-mvn package                                    # produces target/demo-1.0-SNAPSHOT.jar
-java -cp target/demo-1.0-SNAPSHOT.jar com.example.App
-```
-
-#### 5. With Gradle
-
-```sh
-gradle --version                               # confirms Gradle sees JAVA_HOME
-
-mkdir demo && cd demo
-gradle init --type java-application --dsl groovy --no-incubating-report
-
-gradle run                                     # build + run the generated App
-```
-
-#### Troubleshooting
-
-| Symptom | Fix |
-|---------|-----|
-| `java` not found after install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
-| `JAVA_HOME` empty | `mise activate zsh` isn't running. Confirm `eval "$(mise activate zsh)"` is in `~/.zshrc` (the bundled file ships with it). |
-| Maven/Gradle reports the wrong Java | `mise current java` shows the global default; `mise use -g java@temurin-25` re-pins. Project-local override: drop a `.mise.toml` with `[tools] java = "temurin-25"`. |
-| Need another distribution | Edit `Runtime("Java LTS (Temurin 25)", "java@temurin-25", ...)` in `mise_runtimes.py` to e.g. `java@corretto-25`, `java@zulu-25`, `java@graalvm-25`. |
-| Want a REPL without writing files | `jshell` opens it (`/exit` to leave). |
 
 <div align="right"><a href="#mac-fresh-setup">↑ Back to top</a></div>
 
