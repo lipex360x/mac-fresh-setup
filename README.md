@@ -81,8 +81,7 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 
 **Package manager**
 - **Homebrew** — runs the official install script with `NONINTERACTIVE=1`, then appends `brew shellenv` to `~/.zprofile`.
-- **Homebrew formulae** — checkbox menu of CLI tools (`mise`, `gh`); installs the selected ones via `brew install`.
-- **Homebrew casks** — checkbox menu of GUI apps (`iterm2`); installs the selected ones via `brew install --cask`.
+- **Homebrew packages** — single checkbox over the curated list (formulae + casks together; cask items tagged `[cask]`). Installed items show as greyed out. Dispatches to `brew install` or `brew install --cask` automatically.
 
 **Styling**
 - **iTerm2 preferences** — downloads the bundled plist from `config/iterm2/com.googlecode.iterm2.plist` (override with `ITERM2_PREFS_URL`) and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, then runs `killall cfprefsd`. Falls back to `~/Downloads/` with manual import instructions if direct write is blocked.
