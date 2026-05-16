@@ -111,22 +111,28 @@ def _pick_action() -> str | None:
 def _picker(action: str, formulae: set[str], casks: set[str]) -> list[str]:
     install_mode = action == "install"
     title_verb = "install" if install_mode else "uninstall"
+    visible = [
+        pkg for pkg in PACKAGES
+        if _is_installed(pkg, formulae, casks) != install_mode
+    ]
+    if not visible:
+        empty_msg = (
+            "Everything in the curated list is already installed — nothing to install."
+            if install_mode
+            else "No curated packages are installed right now — nothing to uninstall."
+        )
+        console.print(f"[yellow]{empty_msg}[/yellow]")
+        return []
     choices: list[questionary.Choice] = [
         questionary.Choice(title="← Back", value="__back"),
     ]
-    for pkg in PACKAGES:
+    for pkg in visible:
         suffix = " [cask]" if pkg.kind == "cask" else ""
-        installed = _is_installed(pkg, formulae, casks)
-        if install_mode:
-            disabled = "installed" if installed else None
-        else:
-            disabled = None if installed else "not installed"
         choices.append(
             questionary.Choice(
                 title=f"{pkg.name}{suffix}",
                 value=pkg.name,
                 description=pkg.description,
-                disabled=disabled,
             )
         )
     selected = questionary.checkbox(

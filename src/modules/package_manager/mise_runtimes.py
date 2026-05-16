@@ -61,21 +61,27 @@ def _pick_action() -> str | None:
 def _picker(action: str) -> list[str]:
     install_mode = action == "install"
     verb = "install" if install_mode else "uninstall"
+    visible = [
+        rt for rt in RUNTIMES
+        if _has_global(_tool_from_spec(rt.spec)) != install_mode
+    ]
+    if not visible:
+        empty_msg = (
+            "All curated runtimes are already installed globally — nothing to install."
+            if install_mode
+            else "No curated runtimes are set globally right now — nothing to uninstall."
+        )
+        console.print(f"[yellow]{empty_msg}[/yellow]")
+        return []
     choices: list[questionary.Choice] = [
         questionary.Choice(title="← Back", value="__back"),
     ]
-    for rt in RUNTIMES:
-        already = _has_global(_tool_from_spec(rt.spec))
-        if install_mode:
-            disabled = "installed (global)" if already else None
-        else:
-            disabled = None if already else "not installed"
+    for rt in visible:
         choices.append(
             questionary.Choice(
                 title=f"{rt.title}  [dim]({rt.spec})[/dim]",
                 value=rt.spec,
                 description=rt.description,
-                disabled=disabled,
             )
         )
     selected = questionary.checkbox(
