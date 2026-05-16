@@ -23,22 +23,21 @@ class Package:
 
 
 PACKAGES: list[Package] = [
-    Package("mise", "formula", "Polyglot runtime/version manager — handles node/python/java/bun (asdf successor)"),
+    Package("brave-browser", "cask", "Brave — privacy-focused Chromium browser"),
+    Package("the-unarchiver", "cask", "Archive utility for zip, rar, 7z, tar.gz"),
     Package("gh", "formula", "GitHub CLI — auth, PRs, issues, gists from the terminal"),
-    Package("bun", "formula", "Bun JavaScript runtime, bundler, transpiler and test runner"),
+    Package("mise", "formula", "Polyglot runtime/version manager — handles node/python/java (asdf successor)"),
+    Package("font-fira-code", "cask", "Fira Code monospace font with programming ligatures"),
+    Package("docker-desktop", "cask", "Docker Desktop for Mac — containers + compose"),
     Package("iterm2", "cask", "Drop-in replacement for Terminal.app with panes, profiles, ligatures"),
     Package("visual-studio-code", "cask", "Microsoft Visual Studio Code — required for the Editor category"),
-    Package("font-fira-code", "cask", "Fira Code monospace font with programming ligatures"),
     Package("intellij-idea-ce", "cask", "IntelliJ IDEA Community Edition — JVM IDE"),
-    Package("docker-desktop", "cask", "Docker Desktop for Mac — containers + compose"),
     Package("bruno", "cask", "API client — Git-friendly alternative to Postman"),
-    Package("the-unarchiver", "cask", "Archive utility for zip, rar, 7z, tar.gz"),
     Package("mockoon", "cask", "API mocking — design and run mock servers locally"),
     Package("beekeeper-studio", "cask", "SQL client for Postgres, MySQL, SQLite, SQL Server"),
     Package("bitwarden", "cask", "Password manager — desktop client"),
     Package("aldente", "cask", "Battery charge limiter — preserves battery health"),
     Package("betterdisplay", "cask", "Manage external displays, scaling, HiDPI modes"),
-    Package("raycast", "cask", "Spotlight replacement — launcher and command palette"),
     Package("orka-desktop", "cask", "Orka Desktop — manage macOS VMs"),
 ]
 
