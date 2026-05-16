@@ -117,6 +117,42 @@ def _state() -> Literal["not-installed", "running", "stopped"]:
     return "running" if _pid_running() else "stopped"
 
 
+def _rmtree_robust(path: Path) -> list[str]:
+    """Remove a tree, retry once after 2s on permission errors, and report leftovers.
+
+    On Windows, AV scanners (and pending file handles) can briefly hold
+    files locked. We retry once with a short pause, then chmod-777 each
+    failing entry and try a final pass. Anything still left is returned
+    as a list of "path: reason" strings so the caller can surface it to
+    the user instead of silently lying about a successful wipe.
+    """
+    import time as _time
+
+    failures: list[str] = []
+
+    def _onerror(func, p, exc_info):
+        try:
+            os.chmod(p, 0o777)
+            func(p)
+        except Exception as nested:
+            failures.append(f"{p}: {nested}")
+
+    for attempt in range(2):
+        failures.clear()
+        try:
+            shutil.rmtree(path, onerror=_onerror)
+            if not path.exists() and not failures:
+                return []
+        except FileNotFoundError:
+            return []
+        except Exception as exc:
+            failures.append(f"{path}: {exc}")
+        if attempt == 0:
+            _time.sleep(2)
+
+    return failures
+
+
 def _is_port_free(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
@@ -217,14 +253,21 @@ def _do_install() -> None:
     cfg = _load_config() or {}
     cfg.setdefault("version", _MYSQL_VERSION)
     cfg.setdefault("password", "")
-    if "port" not in cfg:
+    if "port" not in cfg or not _is_port_free(cfg["port"]):
+        previous = cfg.get("port")
         chosen = _find_free_port()
         cfg["port"] = chosen
-        if chosen != _DEFAULT_PORT:
+        if previous is None and chosen != _DEFAULT_PORT:
             console.print(
                 f"[yellow]Port {_DEFAULT_PORT} is already bound on this machine[/yellow] "
                 f"(likely an existing MySQL service). Auto-selected the next free port: "
                 f"[bold]{chosen}[/bold]. Saved to config — every wrapper uses it."
+            )
+        elif previous is not None and previous != chosen:
+            console.print(
+                f"[yellow]Previously-saved port {previous} is now busy[/yellow] — "
+                f"another process took it. Re-autodetected: [bold]{chosen}[/bold]. "
+                "Config updated."
             )
     cfg["install_dir"] = str(_install_dir())
     _save_config(cfg)
@@ -287,10 +330,25 @@ def _do_uninstall_wipe() -> None:
     if not confirmed:
         console.print("[yellow]Aborted — nothing removed.[/yellow]")
         return
+    failures: list[str] = []
     if _ROOT.exists():
         mutating_check(f"rm -rf {_ROOT}")
-        shutil.rmtree(_ROOT, ignore_errors=True)
+        failures = _rmtree_robust(_ROOT)
     _remove_wrappers()
+    if failures:
+        console.print(
+            Panel.fit(
+                f"[yellow]Wipe completed with leftovers.[/yellow]\n"
+                f"  removed: wrappers in [dim]{_BIN_DIR}[/dim]\n\n"
+                f"[bold]Could not remove:[/bold]\n"
+                + "\n".join(f"  [dim]{f}[/dim]" for f in failures)
+                + "\n\nLikely an antivirus / file lock. Close anything that "
+                "might be scanning the install dir, then re-run Uninstall(wipe).",
+                border_style="yellow",
+                title="Uninstalled (partial)",
+            )
+        )
+        return
     console.print(
         Panel.fit(
             f"[green]Wiped everything.[/green]\n"
