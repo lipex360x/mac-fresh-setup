@@ -33,10 +33,10 @@ The menu is a hub: pick a **category**, then pick a **module** inside it, run it
 Inspect what each module would do without making changes:
 
 ```sh
-uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py" -- --dry-run
+uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py" --dry-run
 ```
 
-The `--` separates `uv`'s flags from the script's flags. Each module prints the commands it would run, then returns without touching the system.
+Each module prints the commands it would run, then returns without touching the system. Everything after the URL is passed straight to the script.
 
 ### Bypassing cache
 
