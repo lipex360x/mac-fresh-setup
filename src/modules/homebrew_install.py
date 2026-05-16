@@ -12,6 +12,14 @@ from runtime import runtime
 from safe import mutating_check, mutating_run
 
 _INSTALL_SCRIPT_URL = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
+_SHELLENV_VARS = {
+    "PATH",
+    "HOMEBREW_PREFIX",
+    "HOMEBREW_CELLAR",
+    "HOMEBREW_REPOSITORY",
+    "MANPATH",
+    "INFOPATH",
+}
 
 
 def _brew_path() -> Path | None:
@@ -80,6 +88,20 @@ def _append_shellenv() -> None:
     zp.write_text(existing + header + _shellenv_line() + "\n")
 
 
+def _activate_in_process(brew: Path) -> None:
+    result = subprocess.run(
+        ["bash", "-c", f'eval "$({brew} shellenv)" && env'],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return
+    for line in result.stdout.splitlines():
+        key, _, value = line.partition("=")
+        if key in _SHELLENV_VARS:
+            os.environ[key] = value
+
+
 def install_homebrew() -> None:
     brew = _brew_path()
     shellenv_ok = _shellenv_configured()
@@ -122,10 +144,16 @@ def install_homebrew() -> None:
         console.print(
             f"[green]Wired brew shellenv into {_zprofile_path()}.[/green]"
         )
-        console.print(
-            "[dim]Open a new terminal (or run `source ~/.zprofile`) so "
-            "`brew` lands on your PATH.[/dim]"
-        )
+
+    _activate_in_process(brew)
+    console.print(
+        f"[green]Activated brew in this session — `{brew.name}` is on PATH "
+        "for the remaining modules.[/green]"
+    )
+    console.print(
+        "[dim]For your own shell, open a new terminal (or run "
+        "`source ~/.zprofile`) to get brew on PATH outside this script.[/dim]"
+    )
 
 
 module = Module(
