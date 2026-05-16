@@ -91,6 +91,7 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 - **Oh-my-zsh** — runs the official installer with `RUNZSH=no CHSH=no KEEP_ZSHRC=yes`.
 - **Spaceship theme** — clones `denysdovhan/spaceship-prompt` under `$ZSH_CUSTOM/themes` and symlinks the theme file.
 - **Custom .zshrc** — replaces `~/.zshrc` with the bundled `config/zsh/.zshrc` (Spaceship + zinit plugins + mise activation; no aliases). Override with `ZSHRC_URL`.
+- **VSCode stack** — installs the bundled extensions list (`config/vscode/extensions.txt`) and overwrites `settings.json` from `config/vscode/settings.json`. Overrides via `VSCODE_EXTENSIONS_URL` / `VSCODE_SETTINGS_URL`.
 
 ### Exporting your iTerm2 prefs from another Mac
 

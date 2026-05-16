@@ -42,12 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `config/zsh/.zshrc` — bundled config replicating the maintainer's styling-only setup: OMZ defaults, Spaceship prompt with custom order and colors, terminal-title hook, zinit auto-bootstrap with three plugins (`fast-syntax-highlighting`, `zsh-autosuggestions`, `zsh-completions`), and conditional `mise activate zsh`. **No** aliases or `~/.zsh_script/*` sourcing — keeping the bundle minimal until the Languages/aliases work lands.
 - Added `font-fira-code` to the curated Homebrew casks list — needed by iTerm2 (which expects `FiraCode-Regular 12` per the bundled plist) and renders Spaceship's powerline glyphs properly.
 
-### Added (Editor category)
-- New category **Editor** with two modules under `src/modules/editor/`:
-  - **VSCode extensions** (`vscode_extensions.py`) — checkbox of curated extensions (`dbaeumer.vscode-eslint`, `esbenp.prettier-vscode`, `eamodio.gitlens`); already-installed greyed out via `code --list-extensions`; installs via `code --install-extension <id>` with live output.
-  - **VSCode settings** (`vscode_settings.py`) — same pattern as the iTerm2 prefs sync but for `~/Library/Application Support/Code/User/settings.json`; reads source from `VSCODE_SETTINGS_URL` env var or prompt; backs up existing file before writing.
-- Both modules locate the `code` CLI via `shutil.which`, falling back to the bundled binary at `/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code`.
-- Added `visual-studio-code` to the curated Homebrew casks list — install it before the Editor modules.
+### Replaced (VSCode → Styling stack)
+- Removed the standalone **Editor** category and its two modules (`vscode_extensions.py` + `vscode_settings.py`).
+- New module **VSCode stack** (`src/modules/styling/vscode_stack.py`) lands under **Styling** instead — matching the iTerm2 / zsh pattern of "one bundle, one click".
+- Bundled the maintainer's actual setup into the repo:
+  - `config/vscode/extensions.txt` — extension IDs, one per line (no Excalidraw / Draw.io, per request).
+  - `config/vscode/settings.json` — verbatim copy of `~/Library/Application Support/Code/User/settings.json`.
+- The module installs every missing extension via `code --install-extension <id>` (skipping ones already present per `code --list-extensions`), then overwrites `settings.json` with the bundled file (backs up existing). Overrides via `VSCODE_EXTENSIONS_URL` / `VSCODE_SETTINGS_URL` env vars when needed.
 - `--dry-run` flag: each module checks state, prints what it **would** do, then returns without touching the system. Useful to verify idempotency and inspect generated commands.
 - `src/runtime.py` — module-level `Runtime` dataclass carrying global flags. `app.py` sets `runtime.dry_run` from `argparse` before the menu starts; modules read it on entry.
 - Module: **XCode Command Line Tools** (`src/modules/xcode_cli.py`) under the System category. On install, triggers `xcode-select --install` (GUI dialog), shows an instruction panel, blocks on `press_any_key_to_continue`, then verifies. Required prerequisite for Homebrew.

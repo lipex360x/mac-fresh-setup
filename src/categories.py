@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from models import Category
-from modules.editor import vscode_extensions, vscode_settings
 from modules.package_manager import claude_code, homebrew_install, homebrew_packages, mise_runtimes
-from modules.styling import iterm2_prefs, oh_my_zsh, spaceship, zsh_stack, zshrc
+from modules.styling import iterm2_prefs, oh_my_zsh, spaceship, vscode_stack, zsh_stack, zshrc
 from modules.system import ssh_key, sudoers, xcode_cli
 
 CATEGORIES: list[Category] = [
@@ -31,11 +30,7 @@ CATEGORIES: list[Category] = [
             oh_my_zsh.module,
             spaceship.module,
             zshrc.module,
+            vscode_stack.module,
         ),
-    ),
-    Category(
-        key="editor",
-        title="Editor",
-        modules=(vscode_extensions.module, vscode_settings.module),
     ),
 ]

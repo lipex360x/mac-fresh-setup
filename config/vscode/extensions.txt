@@ -1,0 +1,10 @@
+anthropic.claude-code
+dbaeumer.vscode-eslint
+donjayamanne.githistory
+github.copilot-chat
+miguelsolorio.fluent-icons
+miguelsolorio.min-theme
+pkief.material-icon-theme
+qwtel.sqlite-viewer
+ritwickdey.liveserver
+shd101wyy.markdown-preview-enhanced

@@ -36,12 +36,14 @@ mac-fresh-setup/
 │   ├── categories.py           # CATEGORIES registry
 │   └── modules/
 │       ├── system/             # sudoers, xcode_cli, ssh_key
-│       ├── package_manager/    # homebrew_install, homebrew_packages, mise_runtimes
-│       ├── styling/            # iterm2_prefs, oh_my_zsh, spaceship, zshrc, zsh_stack
-│       └── editor/             # vscode_extensions, vscode_settings, _code_cli
+│       ├── package_manager/    # claude_code, homebrew_install, homebrew_packages, mise_runtimes
+│       └── styling/            # iterm2_prefs, oh_my_zsh, spaceship, zshrc, zsh_stack, vscode_stack
 ├── config/
 │   ├── iterm2/com.googlecode.iterm2.plist   # bundled iTerm2 prefs (XML form)
-│   └── zsh/.zshrc                            # bundled zsh styling config
+│   ├── zsh/.zshrc                            # bundled zsh styling config
+│   └── vscode/
+│       ├── settings.json                     # bundled VSCode user settings
+│       └── extensions.txt                    # extension IDs, one per line
 ├── scripts/smoke.py            # mocked-subprocess smoke test (ship sequence step 1)
 ├── docs/fresh-install.md       # source-of-truth gist mirrored locally
 ├── CHANGELOG.md
@@ -64,7 +66,7 @@ The repo has four "pick what you want" pickers, all backed by a list of small fr
 |---|---|---|---|
 | `src/modules/package_manager/homebrew_packages.py` | `Package` | `name`, `kind` (`"formula"` or `"cask"`), `description` | `brew install <name>` or `brew install --cask <name>` based on `kind` |
 | `src/modules/package_manager/mise_runtimes.py` | `Runtime` | `title`, `spec` (e.g. `"node@lts"`), `description` | `mise use -g <spec>` |
-| `src/modules/editor/vscode_extensions.py` | `Extension` | `extension_id` (e.g. `"esbenp.prettier-vscode"`), `description` | `code --install-extension <id>` |
+| `config/vscode/extensions.txt` | (plain text) | one extension ID per line, `#` for comments | `code --install-extension <id>` (run by `vscode_stack`) |
 
 Each picker queries the existing-state once before the prompt and greys out already-installed items via `questionary.Choice(..., disabled="installed")`. Order in the list = order in the menu.
 
