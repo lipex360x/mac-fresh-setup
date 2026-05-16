@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+IS_WIN = sys.platform == "win32"
+
 ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
 CONFIG = ROOT / "config.json"
 RUNTIME = ROOT / "runtime"
@@ -26,19 +28,44 @@ def _load_config() -> dict:
     return json.loads(CONFIG.read_text())
 
 
+def _pid_alive(pid: int) -> bool:
+    if IS_WIN:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and str(pid) in result.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
 def _running() -> bool:
     if not PID.exists():
         return False
     try:
         pid = int(PID.read_text().strip())
-        os.kill(pid, 0)
-        return True
-    except (ValueError, ProcessLookupError, PermissionError):
+    except ValueError:
         return False
+    return _pid_alive(pid)
 
 
 def _bin(cfg: dict, name: str) -> Path:
-    return Path(cfg["install_dir"]) / "bin" / name
+    exe = f"{name}.exe" if IS_WIN else name
+    return Path(cfg["install_dir"]) / "bin" / exe
+
+
+def _kill(pid: int) -> None:
+    if IS_WIN:
+        subprocess.run(["taskkill", "/PID", str(pid), "/T"], capture_output=True)
+        return
+    try:
+        os.kill(pid, 15)
+    except (ProcessLookupError, PermissionError):
+        pass
 
 
 def main() -> None:
@@ -53,7 +80,11 @@ def main() -> None:
         print("MySQL is not running.")
         return
 
-    cmd = [str(_bin(cfg, "mysqladmin")), "-uroot", f"--socket={SOCK}"]
+    cmd = [str(_bin(cfg, "mysqladmin")), "-uroot"]
+    if IS_WIN:
+        cmd.extend(["-h127.0.0.1", f"-P{cfg['port']}"])
+    else:
+        cmd.append(f"--socket={SOCK}")
     if cfg.get("password"):
         cmd.append(f"-p{cfg['password']}")
     cmd.append("shutdown")
@@ -61,11 +92,11 @@ def main() -> None:
 
     if result.returncode != 0:
         print(f"mysqladmin shutdown failed: {result.stderr.strip()}")
-        print("Falling back to SIGTERM on the PID...")
+        print("Falling back to terminating the PID...")
         try:
             pid = int(PID.read_text().strip())
-            os.kill(pid, 15)
-        except (ValueError, ProcessLookupError):
+            _kill(pid)
+        except (ValueError, FileNotFoundError):
             pass
 
     for _ in range(30):

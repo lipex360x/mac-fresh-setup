@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **MySQL Windows support (x64, best-effort).** Removed the `if sys.platform != "darwin"` gate from `manage_mysql` so the module renders on Windows. `_platform_suffix()` now returns `winx64` for win32; combined with `_archive_ext() == "zip"`, the installer downloads `mysql-8.4.3-winx64.zip` from dev.mysql.com. `_binaries_present()` checks `bin/mysqld.exe`. `_pid_running()` got a new `_pid_alive(pid)` helper that uses `tasklist /FI "PID eq N"` on Windows (the Unix `os.kill(pid, 0)` route is unchanged). On **Windows ARM64**, the module prints a yellow warning that MySQL only ships winx64 — runs through Windows' Prism x64 emulation, functional but with some startup overhead.
+- **All four MySQL wrappers (`mysql-up`, `mysql-down`, `mysql-status`, `mysql-cli`) are now cross-platform.** Each branches on `sys.platform == "win32"`:
+  - `mysql-up`: starts `mysqld.exe --console --pid-file --port ...` via `subprocess.Popen` with `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` (Windows analogue to Unix `start_new_session`). No `mysqld_safe`, no `--socket`, no `--user`. Unix path unchanged.
+  - `mysql-down`: connects via `mysqladmin -h127.0.0.1 -P<port>` on Windows, falls back to `taskkill /PID <pid> /T` instead of `SIGTERM`.
+  - `mysql-status`: prints `Host: 127.0.0.1:<port>` on Windows instead of the Unix socket path. PID liveness check goes through `_pid_alive` (tasklist on Windows).
+  - `mysql-cli`: connects via TCP on Windows, `subprocess.run(cmd)` + `sys.exit(rc)` instead of `os.execvp` (which Windows handles as spawn rather than replace).
+- **Windows wrapper shims via `.cmd` + `uv run`.** Wrappers are pure Python (`#!/usr/bin/env python3` shebang) which Windows ignores. The module now copies each wrapper as `<name>.py` to `~/.local/bin/` and writes a `<name>.cmd` shim alongside that runs `uv run --no-project --quiet "%~dp0<name>.py" %*`. Users still type `mysql-up` (no extension) from CMD / PowerShell / Git Bash because `~/.local/bin/<name>.cmd` is on PATH. The Unix path keeps copying the file unchanged with `chmod 0755`.
+- **Untested on real x64 Windows.** The implementation was written from MySQL Windows docs but the test environment is Windows ARM64 via Prism emulation only. If anything breaks on real x64 Windows, the symptom will surface in `mysql-up` (daemon startup) or `mysqladmin` shutdown — those are the riskiest spots. The Mac path is byte-identical to before; smoke test confirms.
+
 ### Fixed
 - **`mise_runtimes` would hit the same WinError 2 once mise was installed.** Mise on Windows arrives as a `.cmd` shim (when installed via Scoop), and Python's `subprocess.run(["mise", ...])` skips `PATHEXT` exactly like Scoop did. Added a `_mise_cmd(args)` helper that prefixes `["cmd", "/c", ...]` on Windows; the idempotency check (`mise current`) and the install/uninstall calls (`mise use -g` / `mise uninstall`) both route through it.
 - **Final "open a new shell" hint hardcoded `mise activate zsh`.** Now branches: `zsh` on macOS, `bash` on Linux and Windows (Git Bash). The misleading hint on Windows had users running `mise activate zsh` and getting "shell zsh not supported".

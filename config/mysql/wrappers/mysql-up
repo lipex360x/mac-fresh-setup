@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+IS_WIN = sys.platform == "win32"
+
 ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
 CONFIG = ROOT / "config.json"
 DATA = ROOT / "data"
@@ -30,7 +32,23 @@ def _load_config() -> dict:
 
 def _save_config(cfg: dict) -> None:
     CONFIG.write_text(json.dumps(cfg, indent=2))
-    CONFIG.chmod(0o600)
+    if not IS_WIN:
+        CONFIG.chmod(0o600)
+
+
+def _pid_alive(pid: int) -> bool:
+    if IS_WIN:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and str(pid) in result.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
 
 
 def _running() -> bool:
@@ -38,31 +56,53 @@ def _running() -> bool:
         return False
     try:
         pid = int(PID.read_text().strip())
-        os.kill(pid, 0)
-        return True
-    except (ValueError, ProcessLookupError, PermissionError):
+    except ValueError:
         return False
+    return _pid_alive(pid)
 
 
 def _bin(cfg: dict, name: str) -> Path:
-    return Path(cfg["install_dir"]) / "bin" / name
+    exe = f"{name}.exe" if IS_WIN else name
+    return Path(cfg["install_dir"]) / "bin" / exe
 
 
 def _initialize_data(cfg: dict) -> int:
     print(f"Initializing data dir at {DATA}...")
     DATA.mkdir(parents=True, exist_ok=True)
-    result = subprocess.run([
+    cmd = [
         str(_bin(cfg, "mysqld")),
         "--initialize-insecure",
         f"--basedir={cfg['install_dir']}",
         f"--datadir={DATA}",
-        f"--user={os.environ.get('USER', 'mysql')}",
-    ])
+    ]
+    if not IS_WIN:
+        cmd.append(f"--user={os.environ.get('USER', 'mysql')}")
+    result = subprocess.run(cmd)
     return result.returncode
 
 
 def _start_daemon(cfg: dict) -> None:
     RUNTIME.mkdir(parents=True, exist_ok=True)
+    if IS_WIN:
+        cmd = [
+            str(_bin(cfg, "mysqld")),
+            "--console",
+            f"--basedir={cfg['install_dir']}",
+            f"--datadir={DATA}",
+            f"--pid-file={PID}",
+            f"--port={cfg['port']}",
+        ]
+        creationflags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        with LOG.open("a") as log:
+            subprocess.Popen(
+                cmd,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                creationflags=creationflags,
+                close_fds=True,
+            )
+        return
     cmd = [
         str(_bin(cfg, "mysqld_safe")),
         f"--basedir={cfg['install_dir']}",
@@ -81,9 +121,18 @@ def _start_daemon(cfg: dict) -> None:
         )
 
 
+def _admin_connect(cfg: dict) -> list[str]:
+    cmd = [str(_bin(cfg, "mysqladmin")), "-uroot"]
+    if IS_WIN:
+        cmd.extend(["-h127.0.0.1", f"-P{cfg['port']}"])
+    else:
+        cmd.append(f"--socket={SOCK}")
+    return cmd
+
+
 def _set_root_password(cfg: dict, new_pass: str) -> bool:
     old_pass = cfg.get("password", "") or ""
-    cmd = [str(_bin(cfg, "mysqladmin")), "-uroot", f"--socket={SOCK}"]
+    cmd = _admin_connect(cfg)
     if old_pass:
         cmd.append(f"-p{old_pass}")
     cmd.extend(["password", new_pass])
@@ -120,7 +169,8 @@ def main() -> None:
     if _running():
         pid = PID.read_text().strip()
         print(f"MySQL is already running (PID {pid}) on port {cfg['port']}.")
-        print(f"Socket: {SOCK}")
+        if not IS_WIN:
+            print(f"Socket: {SOCK}")
         return
 
     if not DATA.exists() or not any(DATA.iterdir()):
@@ -139,7 +189,10 @@ def main() -> None:
 
     pid = PID.read_text().strip()
     print(f"MySQL started on port {cfg['port']} (PID {pid}).")
-    print(f"Socket: {SOCK}")
+    if IS_WIN:
+        print(f"Host:   127.0.0.1:{cfg['port']}")
+    else:
+        print(f"Socket: {SOCK}")
 
     if args.password is not None:
         if _set_root_password(cfg, args.password):

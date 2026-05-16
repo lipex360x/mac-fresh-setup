@@ -35,10 +35,12 @@ _REPO_WRAPPER_DIR = Path(__file__).resolve().parents[3] / "config" / "mysql" / "
 
 
 def _platform_suffix() -> str:
-    if sys.platform != "darwin":
-        return ""
-    arch = "arm64" if platform.machine() == "arm64" else "x86_64"
-    return f"macos14-{arch}"
+    if sys.platform == "darwin":
+        arch = "arm64" if platform.machine() == "arm64" else "x86_64"
+        return f"macos14-{arch}"
+    if sys.platform == "win32":
+        return "winx64"
+    return ""
 
 
 def _archive_ext() -> str:
@@ -61,8 +63,12 @@ def _install_dir() -> Path:
     return _INSTALLS / _MYSQL_VERSION / _archive_basename()
 
 
+def _mysqld_exe() -> str:
+    return "mysqld.exe" if sys.platform == "win32" else "mysqld"
+
+
 def _binaries_present() -> bool:
-    return (_install_dir() / "bin" / "mysqld").exists()
+    return (_install_dir() / "bin" / _mysqld_exe()).exists()
 
 
 def _load_config() -> dict | None:
@@ -77,16 +83,30 @@ def _save_config(cfg: dict) -> None:
     _CONFIG_PATH.chmod(0o600)
 
 
+def _pid_alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and str(pid) in result.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
 def _pid_running() -> bool:
     pid_file = _RUNTIME / "mysql.pid"
     if not pid_file.exists():
         return False
     try:
         pid = int(pid_file.read_text().strip())
-        os.kill(pid, 0)
-        return True
-    except (ValueError, ProcessLookupError, PermissionError):
+    except ValueError:
         return False
+    return _pid_alive(pid)
 
 
 def _state() -> Literal["not-installed", "running", "stopped"]:
@@ -95,20 +115,46 @@ def _state() -> Literal["not-installed", "running", "stopped"]:
     return "running" if _pid_running() else "stopped"
 
 
+def _wrapper_invocation(name: str) -> list[str]:
+    """Argv to execute a wrapper from `_BIN_DIR`."""
+    if sys.platform == "win32":
+        return [str(_BIN_DIR / f"{name}.cmd")]
+    return [str(_BIN_DIR / name)]
+
+
+def _wrapper_exists(name: str) -> bool:
+    if sys.platform == "win32":
+        return (_BIN_DIR / f"{name}.cmd").exists() and (_BIN_DIR / f"{name}.py").exists()
+    return (_BIN_DIR / name).exists()
+
+
 def _copy_wrappers() -> None:
     mutating_check(f"copy MySQL wrappers to {_BIN_DIR}")
     _BIN_DIR.mkdir(parents=True, exist_ok=True)
     for name in _WRAPPER_NAMES:
         src = _REPO_WRAPPER_DIR / name
-        dst = _BIN_DIR / name
-        shutil.copyfile(src, dst)
-        dst.chmod(0o755)
+        if sys.platform == "win32":
+            py_dst = _BIN_DIR / f"{name}.py"
+            cmd_dst = _BIN_DIR / f"{name}.cmd"
+            shutil.copyfile(src, py_dst)
+            cmd_dst.write_text(
+                "@echo off\r\n"
+                f'uv run --no-project --quiet "%~dp0{name}.py" %*\r\n'
+            )
+        else:
+            dst = _BIN_DIR / name
+            shutil.copyfile(src, dst)
+            dst.chmod(0o755)
 
 
 def _remove_wrappers() -> None:
     mutating_check(f"remove MySQL wrappers from {_BIN_DIR}")
     for name in _WRAPPER_NAMES:
-        (_BIN_DIR / name).unlink(missing_ok=True)
+        if sys.platform == "win32":
+            (_BIN_DIR / f"{name}.py").unlink(missing_ok=True)
+            (_BIN_DIR / f"{name}.cmd").unlink(missing_ok=True)
+        else:
+            (_BIN_DIR / name).unlink(missing_ok=True)
 
 
 def _download_and_extract() -> None:
@@ -230,25 +276,25 @@ def _do_uninstall_wipe() -> None:
 
 
 def _do_start() -> None:
-    wrapper = _BIN_DIR / "mysql-up"
-    if not wrapper.exists():
+    if not _wrapper_exists("mysql-up"):
         console.print(
-            f"[red]Wrapper not found at {wrapper}.[/red] Run Install first."
+            f"[red]mysql-up wrapper not found in {_BIN_DIR}.[/red] Run Install first."
         )
         return
-    console.rule(f"[bold]{wrapper}[/bold]")
-    mutating_run([str(wrapper)])
+    cmd = _wrapper_invocation("mysql-up")
+    console.rule(f"[bold]{' '.join(cmd)}[/bold]")
+    mutating_run(cmd)
 
 
 def _do_stop() -> None:
-    wrapper = _BIN_DIR / "mysql-down"
-    if not wrapper.exists():
+    if not _wrapper_exists("mysql-down"):
         console.print(
-            f"[red]Wrapper not found at {wrapper}.[/red] Run Install first."
+            f"[red]mysql-down wrapper not found in {_BIN_DIR}.[/red] Run Install first."
         )
         return
-    console.rule(f"[bold]{wrapper}[/bold]")
-    mutating_run([str(wrapper)])
+    cmd = _wrapper_invocation("mysql-down")
+    console.rule(f"[bold]{' '.join(cmd)}[/bold]")
+    mutating_run(cmd)
 
 
 def _do_status() -> None:
@@ -273,12 +319,19 @@ def _do_status() -> None:
 
 
 def manage_mysql() -> None:
-    if sys.platform != "darwin":
+    if sys.platform not in ("darwin", "win32"):
         console.print(
-            f"[red]This module is macOS-only for now.[/red] "
-            "Windows support is planned (same code, different archive)."
+            f"[red]This module supports macOS and Windows only.[/red] "
+            "Linux support is not implemented yet."
         )
         return
+    if sys.platform == "win32" and platform.machine().lower() in ("arm64", "aarch64"):
+        console.print(
+            "[yellow]Windows ARM64 detected.[/yellow] MySQL only publishes "
+            "[bold]winx64[/bold] binaries — they will run via Windows' x64 "
+            "emulation (Prism). Expect some startup overhead; functionally "
+            "correct."
+        )
 
     if runtime.dry_run:
         console.print(

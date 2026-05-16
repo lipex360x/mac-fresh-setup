@@ -6,8 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
+
+IS_WIN = sys.platform == "win32"
 
 ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
 CONFIG = ROOT / "config.json"
@@ -24,15 +27,31 @@ def _load_config() -> dict | None:
     return json.loads(CONFIG.read_text())
 
 
+def _pid_alive(pid: int) -> bool:
+    if IS_WIN:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and str(pid) in result.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
 def _running() -> tuple[bool, str]:
     if not PID.exists():
         return False, ""
     try:
         pid = int(PID.read_text().strip())
-        os.kill(pid, 0)
-        return True, str(pid)
-    except (ValueError, ProcessLookupError, PermissionError):
+    except ValueError:
         return False, ""
+    if _pid_alive(pid):
+        return True, str(pid)
+    return False, ""
 
 
 def main() -> None:
@@ -54,7 +73,10 @@ def main() -> None:
     running, pid = _running()
     if running:
         print(f"State:       running (PID {pid})")
-        print(f"Socket:      {SOCK}")
+        if IS_WIN:
+            print(f"Host:        127.0.0.1:{cfg['port']}")
+        else:
+            print(f"Socket:      {SOCK}")
         print(f"Log:         {LOG}")
     else:
         print("State:       stopped")
