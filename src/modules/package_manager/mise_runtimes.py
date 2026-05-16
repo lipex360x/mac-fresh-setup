@@ -14,8 +14,11 @@ from runtime import runtime
 from safe import mutating_check, mutating_run
 from style import QUESTIONARY_STYLE
 
+_SHIMS_LINE_BASH = (
+    '[ -d "$HOME/AppData/Local/Mise/shims" ] && '
+    'export PATH="$HOME/AppData/Local/Mise/shims:$PATH"'
+)
 _ACTIVATE_LINE_BASH = 'command -v mise >/dev/null && eval "$(mise activate bash)"'
-_ACTIVATE_BLOCK_BASH = f"\n### mise activate\n{_ACTIVATE_LINE_BASH}\n"
 
 
 @dataclass(frozen=True)
@@ -124,35 +127,55 @@ def _picker(action: str) -> list[str]:
 
 
 def _ensure_mise_activate_on_windows() -> None:
-    """Inject `eval "$(mise activate bash)"` into ~/.bashrc on Windows.
+    """Wire mise into Git Bash on Windows.
 
-    Mac users get the equivalent line through the bundled Zsh stack's
-    .zshrc; Linux users typically wire it themselves. Without this on
-    Windows the runtimes that `mise use -g` installs never show up on
-    PATH (no shims) and `bun --version` etc. fail.
+    Two lines, each appended only if missing:
 
-    Idempotent: checks for the exact activate line before writing.
+    1. Explicit shims PATH export. `mise activate bash` on Windows
+       (mise installed via Scoop) does NOT add the shims directory to
+       PATH — it only puts mise.exe itself on PATH. Without this line,
+       `mise use -g bun@latest` installs bun successfully but `bun
+       --version` returns "command not found" in any new shell.
+
+    2. `eval "$(mise activate bash)"` for the `mise()` shell function
+       and the chpwd hook (auto-detects mise.toml in project dirs).
+       Not load-bearing for the bun-on-PATH problem but still useful.
+
+    Mac/Linux users get the equivalent through the bundled Zsh stack's
+    .zshrc; this helper is a no-op on those platforms.
     """
     if sys.platform != "win32":
         return
     bashrc = Path.home() / ".bashrc"
     existing = bashrc.read_text() if bashrc.exists() else ""
-    if _ACTIVATE_LINE_BASH in existing:
+    needs_shims = _SHIMS_LINE_BASH not in existing
+    needs_activate = _ACTIVATE_LINE_BASH not in existing
+    if not needs_shims and not needs_activate:
         return
+
+    missing: list[str] = []
+    if needs_shims:
+        missing.append(_SHIMS_LINE_BASH)
+    if needs_activate:
+        missing.append(_ACTIVATE_LINE_BASH)
+
     if runtime.dry_run:
         console.print(
-            f"[cyan]DRY RUN[/cyan] would append [dim]{_ACTIVATE_LINE_BASH}[/dim] "
-            f"to [dim]{bashrc}[/dim] so mise shims land on PATH in new Git "
-            "Bash windows."
+            f"[cyan]DRY RUN[/cyan] would append the following to [dim]{bashrc}[/dim]:"
         )
+        for line in missing:
+            console.print(f"  [dim]{line}[/dim]")
         return
-    mutating_check(f"append mise activate to {bashrc}")
+
+    mutating_check(f"append mise PATH+activate to {bashrc}")
     if existing and not existing.endswith("\n"):
         existing += "\n"
-    bashrc.write_text(existing + _ACTIVATE_BLOCK_BASH)
+    block = "\n### mise shims (PATH) and activate (shell function + chpwd hook)\n"
+    block += "\n".join(missing) + "\n"
+    bashrc.write_text(existing + block)
     console.print(
-        f"[green]Wired `mise activate bash` into {bashrc}.[/green] Run "
-        "[dim]exec bash -l[/dim] (or open a new Git Bash window) so the "
+        f"[green]Wired mise shims PATH and activate into {bashrc}.[/green] "
+        "Run [dim]exec bash -l[/dim] (or open a new Git Bash window) so the "
         "shims show up on PATH."
     )
 
