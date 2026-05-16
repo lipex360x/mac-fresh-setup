@@ -66,12 +66,13 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 
 **System**
 - **Grant Root Access** — adds the current user to `/etc/sudoers.d` with `NOPASSWD`.
+- **XCode Command Line Tools** — triggers `xcode-select --install` if missing, waits for the system dialog to finish, then verifies via `pkgutil`.
 - **SSH Key** — generates `~/.ssh/id_rsa` (RSA 4096) if missing, fixes permissions, prints the public key to paste into GitHub.
 
 All modules are idempotent — re-running is safe.
 
 ## Roadmap
 
-Not implemented yet: XCode CLI, Homebrew + formulae/casks, Oh-my-zsh + Spaceship, asdf languages, VSCode extensions, git config + `gh auth`.
+Not implemented yet: Homebrew + formulae/casks, Oh-my-zsh + Spaceship, asdf languages, VSCode extensions, git config + `gh auth`.
 
 See `CHANGELOG.md` for the full history. Source reference: `docs/fresh-install.md`.

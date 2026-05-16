@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `--dry-run` flag: each module checks state, prints what it **would** do, then returns without touching the system. Useful to verify idempotency and inspect generated commands.
 - `src/runtime.py` — module-level `Runtime` dataclass carrying global flags. `app.py` sets `runtime.dry_run` from `argparse` before the menu starts; modules read it on entry.
+- Module: **XCode Command Line Tools** (`src/modules/xcode_cli.py`) under the System category. Idempotency check via `pkgutil --pkg-info=com.apple.pkg.CLTools_Executables`; on install, triggers `xcode-select --install` (GUI dialog), shows an instruction panel, blocks on `press_any_key_to_continue`, then verifies. Required prerequisite for Homebrew.
 
 ### How to use
 
