@@ -3,12 +3,12 @@ from __future__ import annotations
 from models import Category
 from modules.databases import mysql, postgres
 from modules.package_manager import (
-    chocolatey_install,
-    chocolatey_packages,
     claude_code,
     homebrew_install,
     homebrew_packages,
     mise_runtimes,
+    scoop_install,
+    scoop_packages,
 )
 from modules.styling import iterm2_prefs, vscode_stack, zsh_stack
 from modules.system import git_for_windows, ssh_key, sudoers, xcode_cli
@@ -30,9 +30,9 @@ CATEGORIES: list[Category] = [
         modules=(
             claude_code.module,
             homebrew_install.module,
-            chocolatey_install.module,
+            scoop_install.module,
             homebrew_packages.module,
-            chocolatey_packages.module,
+            scoop_packages.module,
             mise_runtimes.module,
         ),
     ),

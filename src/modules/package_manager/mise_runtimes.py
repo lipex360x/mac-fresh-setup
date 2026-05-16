@@ -102,7 +102,7 @@ def _picker(action: str) -> list[str]:
 def install_mise_runtimes() -> None:
     if not _mise_available():
         installer = (
-            "[bold]Chocolatey packages[/bold] (pick `mise`)"
+            "[bold]Scoop packages[/bold] (pick `mise`)"
             if sys.platform == "win32"
             else "[bold]Homebrew packages[/bold] (pick `mise`)"
         )
