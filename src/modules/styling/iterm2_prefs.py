@@ -8,7 +8,6 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-import questionary
 from rich.panel import Panel
 
 from console import console
@@ -19,22 +18,19 @@ from safe import mutating_check, mutating_run
 _ITERM2_PLIST = Path.home() / "Library" / "Preferences" / "com.googlecode.iterm2.plist"
 _DOWNLOADS_FALLBACK = Path.home() / "Downloads" / "com.googlecode.iterm2.plist"
 _ENV_VAR = "ITERM2_PREFS_URL"
+_DEFAULT_URL = (
+    "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/"
+    "config/iterm2/com.googlecode.iterm2.plist"
+)
 
 
-def _read_source() -> str | None:
-    default = os.environ.get(_ENV_VAR, "")
-    if default:
-        console.print(f"[dim]Using ${_ENV_VAR} = {default}[/dim]")
-        return default
-    source = questionary.text(
-        "iTerm2 preferences source (URL or local path to .plist) — "
-        "leave empty to cancel:",
-        default="",
-    ).ask()
-    if source is None:
-        return None
-    source = source.strip()
-    return source or None
+def _resolve_source() -> str:
+    override = os.environ.get(_ENV_VAR, "").strip()
+    if override:
+        console.print(f"[dim]Using ${_ENV_VAR} override: {override}[/dim]")
+        return override
+    console.print(f"[dim]Using bundled prefs: {_DEFAULT_URL}[/dim]")
+    return _DEFAULT_URL
 
 
 def _fetch_bytes(source: str) -> bytes:
@@ -76,18 +72,15 @@ def _save_to_downloads(data: bytes) -> Path:
 def sync_iterm2_prefs() -> None:
     if runtime.dry_run:
         console.print(
-            f"[cyan]DRY RUN[/cyan] would read source from [dim]${_ENV_VAR}[/dim] "
-            "(or prompt), fetch the plist bytes, write them to "
-            f"[dim]{_ITERM2_PLIST}[/dim] (backing up existing), run "
+            f"[cyan]DRY RUN[/cyan] would fetch the plist from "
+            f"[dim]{_DEFAULT_URL}[/dim] (or [dim]${_ENV_VAR}[/dim] override), "
+            f"write it to [dim]{_ITERM2_PLIST}[/dim] (backing up existing), run "
             "[dim]killall cfprefsd[/dim], and on failure fall back to "
             f"[dim]{_DOWNLOADS_FALLBACK}[/dim] with manual import instructions."
         )
         return
 
-    source = _read_source()
-    if source is None:
-        console.print("[yellow]Returning to menu.[/yellow]")
-        return
+    source = _resolve_source()
 
     mutating_check(f"write iTerm2 prefs (target: {_ITERM2_PLIST})")
 
