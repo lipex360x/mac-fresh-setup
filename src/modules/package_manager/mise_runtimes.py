@@ -55,9 +55,16 @@ def _tool_from_spec(spec: str) -> str:
     return spec.split("@", 1)[0]
 
 
-def _has_global(tool: str) -> bool:
+def _is_installed(spec: str) -> bool:
+    """Check whether the actual runtime files for `spec` are on disk.
+
+    `mise where <spec>` returns the install path on success and a non-zero
+    rc when the version is not installed (regardless of whether the global
+    config still pins it). This is the source of truth — `mise current`
+    only checks the pin, which leaves stale entries after `mise uninstall`.
+    """
     result = subprocess.run(
-        _mise_cmd(["current", tool]),
+        _mise_cmd(["where", spec]),
         capture_output=True,
         text=True,
     )
@@ -84,7 +91,7 @@ def _picker(action: str) -> list[str]:
     verb = "install" if install_mode else "uninstall"
     visible = [
         rt for rt in RUNTIMES
-        if _has_global(_tool_from_spec(rt.spec)) != install_mode
+        if _is_installed(rt.spec) != install_mode
     ]
     if not visible:
         empty_msg = (
@@ -186,21 +193,24 @@ def install_mise_runtimes() -> None:
 
     for spec in selected:
         if action == "install":
-            cmd = _mise_cmd(["use", "-g", spec])
+            steps = [_mise_cmd(["use", "-g", spec])]
         else:
-            cmd = _mise_cmd(["uninstall", spec])
-        console.rule(f"[bold]{' '.join(cmd)}[/bold]")
-        result = mutating_run(cmd)
-        if result.returncode != 0:
-            console.print(
-                f"[red]{' '.join(cmd)} failed (rc={result.returncode}).[/red]"
-            )
-            if not questionary.confirm(
-                f"Continue with the remaining {action}s?",
-                default=True,
-                style=QUESTIONARY_STYLE,
-            ).ask():
-                return
+            tool = _tool_from_spec(spec)
+            steps = [_mise_cmd(["uninstall", spec]), _mise_cmd(["unuse", "-g", tool])]
+        for cmd in steps:
+            console.rule(f"[bold]{' '.join(cmd)}[/bold]")
+            result = mutating_run(cmd)
+            if result.returncode != 0:
+                console.print(
+                    f"[red]{' '.join(cmd)} failed (rc={result.returncode}).[/red]"
+                )
+                if not questionary.confirm(
+                    f"Continue with the remaining {action}s?",
+                    default=True,
+                    style=QUESTIONARY_STYLE,
+                ).ask():
+                    return
+                break
 
     console.rule("[bold green]Done[/bold green]")
     if action == "install":
