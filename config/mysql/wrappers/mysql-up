@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -49,6 +50,15 @@ def _pid_alive(pid: int) -> bool:
         return True
     except (ProcessLookupError, PermissionError):
         return False
+
+
+def _port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", port))
+            return True
+        except OSError:
+            return False
 
 
 def _running() -> bool:
@@ -178,6 +188,13 @@ def main() -> None:
         rc = _initialize_data(cfg)
         if rc != 0:
             sys.exit(f"Data init failed (rc={rc}).")
+
+    if not _port_free(cfg["port"]):
+        sys.exit(
+            f"Port {cfg['port']} is already in use. Another mysqld (system service?) "
+            f"is bound. Either stop it, or pick a different port: "
+            f"`mysql-up -p {cfg['port'] + 1}` (the choice is saved to config)."
+        )
 
     _start_daemon(cfg)
 

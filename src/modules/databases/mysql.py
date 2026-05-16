@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
@@ -23,6 +24,7 @@ from style import QUESTIONARY_STYLE
 
 _MYSQL_VERSION = "8.4.3"
 _DEFAULT_PORT = 3306
+_PORT_PROBE_LIMIT = 20
 
 _ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
 _INSTALLS = _ROOT / "installs"
@@ -115,6 +117,22 @@ def _state() -> Literal["not-installed", "running", "stopped"]:
     return "running" if _pid_running() else "stopped"
 
 
+def _is_port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", port))
+            return True
+        except OSError:
+            return False
+
+
+def _find_free_port(start: int = _DEFAULT_PORT, limit: int = _PORT_PROBE_LIMIT) -> int:
+    for candidate in range(start, start + limit):
+        if _is_port_free(candidate):
+            return candidate
+    return start
+
+
 def _wrapper_invocation(name: str) -> list[str]:
     """Argv to execute a wrapper from `_BIN_DIR`."""
     if sys.platform == "win32":
@@ -198,22 +216,32 @@ def _do_install() -> None:
 
     cfg = _load_config() or {}
     cfg.setdefault("version", _MYSQL_VERSION)
-    cfg.setdefault("port", _DEFAULT_PORT)
     cfg.setdefault("password", "")
+    if "port" not in cfg:
+        chosen = _find_free_port()
+        cfg["port"] = chosen
+        if chosen != _DEFAULT_PORT:
+            console.print(
+                f"[yellow]Port {_DEFAULT_PORT} is already bound on this machine[/yellow] "
+                f"(likely an existing MySQL service). Auto-selected the next free port: "
+                f"[bold]{chosen}[/bold]. Saved to config — every wrapper uses it."
+            )
     cfg["install_dir"] = str(_install_dir())
     _save_config(cfg)
 
     _copy_wrappers()
 
+    port = cfg["port"]
     console.print(
         Panel.fit(
             f"[green]MySQL {_MYSQL_VERSION} ready.[/green]\n"
             f"  install dir: [dim]{_install_dir()}[/dim]\n"
             f"  data dir:    [dim]{_DATA}[/dim] (created on first start)\n"
             f"  config:      [dim]{_CONFIG_PATH}[/dim]\n"
-            f"  wrappers:    [dim]{_BIN_DIR}/{{{', '.join(_WRAPPER_NAMES)}}}[/dim]\n\n"
-            "[bold]Next:[/bold] [dim]mysql-up[/dim] (default port 3306, no password).\n"
-            "[dim]mysql-up -p 3307 --pass mysecret[/dim] to set both at once.\n"
+            f"  wrappers:    [dim]{_BIN_DIR}/{{{', '.join(_WRAPPER_NAMES)}}}[/dim]\n"
+            f"  port:        [bold]{port}[/bold]\n\n"
+            f"[bold]Next:[/bold] [dim]mysql-up[/dim] (port {port}, no password).\n"
+            f"[dim]mysql-up --pass mysecret[/dim] to set a root password.\n"
             "[dim]mysql-up -h[/dim] for help.",
             border_style="green",
             title="Installed",
@@ -319,14 +347,23 @@ def _do_status() -> None:
         return
     pid_file = _RUNTIME / "mysql.pid"
     pid = pid_file.read_text().strip() if pid_file.exists() else "—"
+    port = cfg["port"] if cfg else None
+    port_busy = (port is not None) and (not _is_port_free(port))
+    if state == "running":
+        port_line = f"  listening:   [bold green]127.0.0.1:{port}[/bold green]"
+    elif port is not None:
+        marker = " [yellow](in use by another process)[/yellow]" if port_busy else " [dim](free)[/dim]"
+        port_line = f"  port:        [bold]{port}[/bold]{marker}"
+    else:
+        port_line = ""
     lines = [
         f"  state:       [bold]{state}[/bold]" + (f" (PID {pid})" if state == "running" else ""),
         f"  version:     {cfg['version']}" if cfg else "",
         f"  install dir: [dim]{_install_dir()}[/dim]",
         f"  data dir:    [dim]{_DATA}[/dim]",
-        f"  port:        {cfg['port']}" if cfg else "",
+        port_line,
         f"  password:    {'(set)' if cfg and cfg.get('password') else '(empty)'}" if cfg else "",
-        f"  socket:      [dim]{_RUNTIME / 'mysql.sock'}[/dim]" if state == "running" else "",
+        f"  socket:      [dim]{_RUNTIME / 'mysql.sock'}[/dim]" if state == "running" and sys.platform != "win32" else "",
         f"  log:         [dim]{_RUNTIME / 'mysql.log'}[/dim]" if state == "running" else "",
     ]
     console.print("\n".join(line for line in lines if line))
