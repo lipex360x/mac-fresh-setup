@@ -46,16 +46,21 @@ def main() -> None:
         "--help", action="help", help="show this help message and exit",
     )
     parser.add_argument(
+        "-p", "--port", type=int,
+        help="Override the port from config.json (handy for debug sessions).",
+    )
+    parser.add_argument(
         "extra", nargs=argparse.REMAINDER,
         help="Extra args passed to mysql (e.g. -e 'SELECT 1', a database name).",
     )
     args = parser.parse_args()
 
     cfg = _load_config()
+    port = args.port or cfg["port"]
 
     cmd = [str(_bin(cfg, "mysql")), "-uroot"]
     if IS_WIN:
-        cmd.extend(["-h127.0.0.1", f"-P{cfg['port']}"])
+        cmd.extend(["-h127.0.0.1", f"-P{port}"])
     else:
         cmd.append(f"--socket={SOCK}")
     if cfg.get("password"):
