@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""mysql-debug: run mysqld in foreground attached to current shell.
+
+Use this when mysql-up fails silently — you'll see every line of mysqld
+output live in the terminal, no log file involved.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+IS_WIN = sys.platform == "win32"
+
+ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
+CONFIG = ROOT / "config.json"
+DATA = ROOT / "data"
+RUNTIME = ROOT / "runtime"
+
+
+def _load_config() -> dict:
+    if not CONFIG.exists():
+        sys.exit(
+            "MySQL is not installed. Run mac-fresh-setup → Databases → MySQL → Install."
+        )
+    return json.loads(CONFIG.read_text())
+
+
+def _bin(cfg: dict, name: str) -> Path:
+    exe = f"{name}.exe" if IS_WIN else name
+    return Path(cfg["install_dir"]) / "bin" / exe
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="mysql-debug",
+        description="Run mysqld in foreground for live diagnostics (Ctrl-C to stop).",
+    )
+    parser.add_argument(
+        "-p", "--port", type=int,
+        help="Port to listen on (default: from config).",
+    )
+    args = parser.parse_args()
+
+    cfg = _load_config()
+    port = args.port or cfg["port"]
+
+    if not DATA.exists() or not any(DATA.iterdir()):
+        sys.exit(
+            f"Data dir is empty at {DATA}. Run `mysql-up` once to initialise, "
+            "or re-install via mac-fresh-setup."
+        )
+
+    RUNTIME.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        str(_bin(cfg, "mysqld")),
+        "--console",
+        f"--basedir={cfg['install_dir']}",
+        f"--datadir={DATA}",
+        f"--port={port}",
+    ]
+    if not IS_WIN:
+        cmd.append(f"--user={os.environ.get('USER', 'mysql')}")
+
+    print("Running mysqld in foreground. Ctrl-C to stop.")
+    print(f"  cmd: {' '.join(cmd)}")
+    sys.exit(subprocess.run(cmd).returncode)
+
+
+if __name__ == "__main__":
+    main()

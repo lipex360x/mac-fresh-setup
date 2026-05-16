@@ -30,7 +30,7 @@ _DATA = _ROOT / "data"
 _RUNTIME = _ROOT / "runtime"
 _CONFIG_PATH = _ROOT / "config.json"
 _BIN_DIR = Path.home() / ".local" / "bin"
-_WRAPPER_NAMES = ("mysql-up", "mysql-down", "mysql-status", "mysql-cli")
+_WRAPPER_NAMES = ("mysql-up", "mysql-down", "mysql-status", "mysql-cli", "mysql-debug")
 _REPO_WRAPPER_DIR = Path(__file__).resolve().parents[3] / "config" / "mysql" / "wrappers"
 
 
@@ -275,6 +275,20 @@ def _do_uninstall_wipe() -> None:
     )
 
 
+def _do_refresh_wrappers() -> None:
+    if runtime.dry_run:
+        console.print(
+            f"[cyan]DRY RUN[/cyan] would re-copy "
+            f"[dim]{', '.join(_WRAPPER_NAMES)}[/dim] into [dim]{_BIN_DIR}[/dim]."
+        )
+        return
+    _copy_wrappers()
+    console.print(
+        f"[green]Refreshed wrappers in {_BIN_DIR}.[/green] "
+        f"({', '.join(_WRAPPER_NAMES)})"
+    )
+
+
 def _do_start() -> None:
     if not _wrapper_exists("mysql-up"):
         console.print(
@@ -364,6 +378,12 @@ def manage_mysql() -> None:
             choices.append(questionary.Choice(title="Stop", value="stop"))
         choices.append(
             questionary.Choice(
+                title="Refresh wrappers (re-copy from repo, no download)",
+                value="refresh-wrappers",
+            )
+        )
+        choices.append(
+            questionary.Choice(
                 title="Uninstall (keep data)", value="uninstall-keep"
             )
         )
@@ -389,6 +409,7 @@ def manage_mysql() -> None:
         "status": _do_status,
         "start": _do_start,
         "stop": _do_stop,
+        "refresh-wrappers": _do_refresh_wrappers,
         "uninstall-keep": _do_uninstall_keep_data,
         "uninstall-wipe": _do_uninstall_wipe,
     }

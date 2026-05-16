@@ -91,6 +91,7 @@ def _start_daemon(cfg: dict) -> None:
             f"--datadir={DATA}",
             f"--pid-file={PID}",
             f"--port={cfg['port']}",
+            f"--log-error={LOG}",
         ]
         creationflags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
         with LOG.open("a") as log:
