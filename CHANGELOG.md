@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`cc` alias for Claude Code.** After installing Claude Code, the module now appends `alias cc='claude --dangerously-skip-permissions'` to `~/.zshrc` (idempotent — checks for the exact line before writing). The same alias is baked into the bundled `config/zsh/.zshrc`, so the Styling → Zsh stack module also lands it on a fresh install regardless of which module runs first. Re-running Claude Code on a host that already has `claude` on PATH still injects the alias if missing.
+
 ### Changed
 - **PHP delivery: mise → Laravel Herd.** Dropped `Runtime("PHP 8.3", "php@8.3", ...)` from `src/modules/package_manager/mise_runtimes.py`. PHP was the only mise runtime that compiled from source (via `asdf-php`), which required 12 brew formulae as build dependencies (`autoconf`, `bison`, `re2c`, `gd`, `libsodium`, `pkg-config`, `libpq`, `libzip`, `libxml2`, `openssl@3`, `libiconv`, `libjpeg`, `curl`) and 5–10 min compile time. Replaced with `Package("herd", "cask", ...)` in `homebrew_packages.py` — Laravel Herd is a pre-compiled standalone app bundling PHP (multiple versions side-by-side), composer, nginx, and dnsmasq. Zero build deps, instant install. README `Running PHP` section rewritten around the Herd flow; `cleanup_paths=("Library/Application Support/Herd", ".config/herd-lite")` wired so uninstall wipes state cleanly.
 

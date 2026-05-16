@@ -58,3 +58,6 @@ if command -v mise &>/dev/null; then
 fi
 
 export PATH="$HOME/.local/bin:$PATH"
+
+### CLAUDE CODE
+alias cc='claude --dangerously-skip-permissions'
