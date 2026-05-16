@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-05-16
+
+> Progress checkpoint — not tagged.
+
+### Changed
+- Menu redesigned as a hub: main menu lists **categories**, picking one opens a submenu of modules. Each module runs in isolation; after it finishes you return to the submenu. From any submenu, `← Back` returns to the main menu; main menu has `Exit`.
+- Modules are now grouped under a `Category`. First category: **System** (sudoers + ssh-key). Future categories planned: Package manager (Homebrew), Shell (oh-my-zsh/spaceship/zshrc), Languages (asdf), Editor (VSCode).
+
+### Why
+- Multi-select (`questionary.checkbox`) ran every selected module in a single pass with no chance to skip mid-way, and the script exited to the shell at the end. The hub pattern lets the user pick one module, watch it complete, and decide what to do next — and keeps the menu manageable as more modules land.
+
 ## [0.1.1] — 2026-05-16
 
 > Progress checkpoint — not tagged. Tags land only on milestone releases.

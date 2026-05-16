@@ -127,18 +127,31 @@ def generate_ssh_key() -> None:
         ))
 
 
-MODULES: list[Module] = [
-    Module(
-        key="sudoers",
-        title="Grant Root Access",
-        description="Adds the current user to /etc/sudoers.d with NOPASSWD.",
-        run=grant_root_access,
-    ),
-    Module(
-        key="ssh_key",
-        title="SSH Key",
-        description="Generates ~/.ssh/id_rsa if missing and prints the public key.",
-        run=generate_ssh_key,
+@dataclass(frozen=True)
+class Category:
+    key: str
+    title: str
+    modules: tuple[Module, ...]
+
+
+CATEGORIES: list[Category] = [
+    Category(
+        key="system",
+        title="System",
+        modules=(
+            Module(
+                key="sudoers",
+                title="Grant Root Access",
+                description="Adds the current user to /etc/sudoers.d with NOPASSWD.",
+                run=grant_root_access,
+            ),
+            Module(
+                key="ssh_key",
+                title="SSH Key",
+                description="Generates ~/.ssh/id_rsa if missing and prints the public key.",
+                run=generate_ssh_key,
+            ),
+        ),
     ),
 ]
 
@@ -153,6 +166,30 @@ def preflight() -> None:
             sys.exit(1)
 
 
+def _run_module(module: Module) -> None:
+    console.rule(f"[bold]{module.title}[/bold]")
+    try:
+        module.run()
+    except Exception as exc:
+        console.print(f"[red]Module {module.key} failed: {exc}[/red]")
+    console.print()
+    questionary.press_any_key_to_continue("Press any key to return to the menu...").ask()
+
+
+def _category_menu(category: Category) -> None:
+    while True:
+        choices = [questionary.Choice(title=m.title, value=m.key) for m in category.modules]
+        choices.append(questionary.Choice(title="← Back", value="__back"))
+        answer = questionary.select(
+            f"{category.title} — pick a module:",
+            choices=choices,
+        ).ask()
+        if answer in (None, "__back"):
+            return
+        module = next(m for m in category.modules if m.key == answer)
+        _run_module(module)
+
+
 def main() -> None:
     preflight()
     console.print(Panel.fit(
@@ -161,31 +198,18 @@ def main() -> None:
         border_style="cyan",
     ))
 
-    choices = [
-        questionary.Choice(title=m.title, value=m.key, checked=True)
-        for m in MODULES
-    ]
-    selected = questionary.checkbox(
-        "Select the modules to run (space to toggle, enter to confirm):",
-        choices=choices,
-    ).ask()
-
-    if not selected:
-        console.print("[yellow]Nothing selected — exiting.[/yellow]")
-        return
-
-    by_key = {m.key: m for m in MODULES}
-    for key in selected:
-        module = by_key[key]
-        console.rule(f"[bold]{module.title}[/bold]")
-        try:
-            module.run()
-        except Exception as exc:
-            console.print(f"[red]Module {module.key} failed: {exc}[/red]")
-            if not questionary.confirm("Continue with the remaining modules?", default=False).ask():
-                sys.exit(1)
-
-    console.rule("[bold green]Done[/bold green]")
+    while True:
+        choices = [questionary.Choice(title=c.title, value=c.key) for c in CATEGORIES]
+        choices.append(questionary.Choice(title="Exit", value="__exit"))
+        answer = questionary.select(
+            "Pick a category:",
+            choices=choices,
+        ).ask()
+        if answer in (None, "__exit"):
+            console.rule("[bold green]Bye[/bold green]")
+            return
+        category = next(c for c in CATEGORIES if c.key == answer)
+        _category_menu(category)
 
 
 if __name__ == "__main__":
