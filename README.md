@@ -82,8 +82,8 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 **Package manager**
 - **Claude Code** — installs Anthropic's CLI via the official `curl https://claude.ai/install.sh | bash` route. No brew, no Node required.
 - **Homebrew** — runs the official install script with `NONINTERACTIVE=1`, then appends `brew shellenv` to `~/.zprofile`.
-- **Homebrew packages** — single checkbox over the curated list (formulae + casks together; cask items tagged `[cask]`). Installed items show as greyed out. Dispatches to `brew install` or `brew install --cask` automatically.
-- **Mise runtimes** — checkbox over language runtimes (Node.js LTS, Bun latest, Java LTS Temurin 25, PHP 8.3). Each entry maps to `mise use -g <spec>`. Already-set runtimes greyed out.
+- **Homebrew packages** — first prompts **Install / Uninstall / Back**, then shows the curated list (formulae + casks together; cask items tagged `[cask]`). In install mode installed items are greyed out; in uninstall mode the inverse holds. Dispatches to `brew install`/`brew uninstall` (with `--cask` when needed).
+- **Mise runtimes** — same Install/Uninstall flow over the runtime list (Node.js LTS, Bun latest, Java LTS Temurin 25, PHP 8.3). Maps to `mise use -g <spec>` or `mise uninstall <spec>`.
 
 **Styling**
 - **iTerm2 preferences** — downloads the bundled plist from `config/iterm2/com.googlecode.iterm2.plist` (override with `ITERM2_PREFS_URL`) and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, then runs `killall cfprefsd`.

@@ -84,6 +84,61 @@ def _install(pkg: Package) -> int:
     return result.returncode
 
 
+def _uninstall(pkg: Package) -> int:
+    cmd = ["brew", "uninstall"]
+    if pkg.kind == "cask":
+        cmd.append("--cask")
+    cmd.append(pkg.name)
+    console.rule(f"[bold]{' '.join(cmd)}[/bold]")
+    result = mutating_run(cmd)
+    return result.returncode
+
+
+def _pick_action() -> str | None:
+    answer = questionary.select(
+        "Homebrew packages — what do you want to do?",
+        choices=[
+            questionary.Choice(title="Install", value="install"),
+            questionary.Choice(title="Uninstall", value="uninstall"),
+            questionary.Choice(title="← Back", value="__back"),
+        ],
+    ).ask()
+    if answer in (None, "__back"):
+        return None
+    return answer
+
+
+def _picker(action: str, formulae: set[str], casks: set[str]) -> list[str]:
+    install_mode = action == "install"
+    title_verb = "install" if install_mode else "uninstall"
+    choices: list[questionary.Choice] = [
+        questionary.Choice(title="← Back", value="__back"),
+    ]
+    for pkg in PACKAGES:
+        suffix = " [cask]" if pkg.kind == "cask" else ""
+        installed = _is_installed(pkg, formulae, casks)
+        if install_mode:
+            disabled = "installed" if installed else None
+        else:
+            disabled = None if installed else "not installed"
+        choices.append(
+            questionary.Choice(
+                title=f"{pkg.name}{suffix}",
+                value=pkg.name,
+                description=pkg.description,
+                disabled=disabled,
+            )
+        )
+    selected = questionary.checkbox(
+        f"Pick Homebrew packages to {title_verb} (space to toggle, enter to "
+        "confirm — pick '← Back' alone to return):",
+        choices=choices,
+    ).ask()
+    if not selected or "__back" in selected:
+        return []
+    return [s for s in selected if s != "__back"]
+
+
 def install_homebrew_packages() -> None:
     if not _brew_available():
         console.print(
@@ -93,52 +148,37 @@ def install_homebrew_packages() -> None:
         return
 
     if runtime.dry_run:
-        formula_names = ", ".join(p.name for p in PACKAGES if p.kind == "formula")
-        cask_names = ", ".join(p.name for p in PACKAGES if p.kind == "cask")
+        names = ", ".join(p.name for p in PACKAGES)
         console.print(
-            f"[cyan]DRY RUN[/cyan] would prompt for selection among formulae "
-            f"[dim]{formula_names}[/dim] and casks [dim]{cask_names}[/dim], then "
-            "run [dim]brew install[/dim] (with [dim]--cask[/dim] when applicable) "
-            "for each selected package (skipping ones already installed)."
+            f"[cyan]DRY RUN[/cyan] would prompt Install/Uninstall, then over "
+            f"[dim]{names}[/dim] run [dim]brew install[/dim] / "
+            "[dim]brew uninstall[/dim] (with [dim]--cask[/dim] when applicable) "
+            "for each selected package."
         )
+        return
+
+    action = _pick_action()
+    if action is None:
+        console.print("[yellow]Returning to menu.[/yellow]")
         return
 
     formulae = _installed_formulae()
     casks = _installed_casks()
-
-    choices: list[questionary.Choice] = [
-        questionary.Choice(title="← Back", value="__back"),
-    ]
-    for pkg in PACKAGES:
-        suffix = " [cask]" if pkg.kind == "cask" else ""
-        choices.append(
-            questionary.Choice(
-                title=f"{pkg.name}{suffix}",
-                value=pkg.name,
-                description=pkg.description,
-                disabled="installed" if _is_installed(pkg, formulae, casks) else None,
-            )
-        )
-
-    selected = questionary.checkbox(
-        "Pick Homebrew packages to install (space to toggle, enter to confirm — "
-        "pick '← Back' alone to return):",
-        choices=choices,
-    ).ask()
-
-    if not selected or "__back" in selected:
+    selected_names = _picker(action, formulae, casks)
+    if not selected_names:
         console.print("[yellow]Returning to menu.[/yellow]")
         return
-    selected_names = {s for s in selected if s != "__back"}
 
     by_name = {p.name: p for p in PACKAGES}
     for name in selected_names:
         pkg = by_name[name]
-        rc = _install(pkg)
+        rc = _install(pkg) if action == "install" else _uninstall(pkg)
         if rc != 0:
-            console.print(f"[red]brew install {name} failed (rc={rc}).[/red]")
+            console.print(
+                f"[red]brew {action} {name} failed (rc={rc}).[/red]"
+            )
             if not questionary.confirm(
-                "Continue with the remaining packages?", default=True
+                f"Continue with the remaining {action}s?", default=True
             ).ask():
                 return
 

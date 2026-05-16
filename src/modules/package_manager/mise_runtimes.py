@@ -44,6 +44,50 @@ def _has_global(tool: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
+def _pick_action() -> str | None:
+    answer = questionary.select(
+        "Mise runtimes — what do you want to do?",
+        choices=[
+            questionary.Choice(title="Install", value="install"),
+            questionary.Choice(title="Uninstall", value="uninstall"),
+            questionary.Choice(title="← Back", value="__back"),
+        ],
+    ).ask()
+    if answer in (None, "__back"):
+        return None
+    return answer
+
+
+def _picker(action: str) -> list[str]:
+    install_mode = action == "install"
+    verb = "install" if install_mode else "uninstall"
+    choices: list[questionary.Choice] = [
+        questionary.Choice(title="← Back", value="__back"),
+    ]
+    for rt in RUNTIMES:
+        already = _has_global(_tool_from_spec(rt.spec))
+        if install_mode:
+            disabled = "installed (global)" if already else None
+        else:
+            disabled = None if already else "not installed"
+        choices.append(
+            questionary.Choice(
+                title=f"{rt.title}  [dim]({rt.spec})[/dim]",
+                value=rt.spec,
+                description=rt.description,
+                disabled=disabled,
+            )
+        )
+    selected = questionary.checkbox(
+        f"Pick runtimes to {verb} (space to toggle, enter to confirm — "
+        "pick '← Back' alone to return):",
+        choices=choices,
+    ).ask()
+    if not selected or "__back" in selected:
+        return []
+    return [s for s in selected if s != "__back"]
+
+
 def install_mise_runtimes() -> None:
     if not _mise_available():
         console.print(
@@ -55,52 +99,44 @@ def install_mise_runtimes() -> None:
     if runtime.dry_run:
         specs = ", ".join(r.spec for r in RUNTIMES)
         console.print(
-            f"[cyan]DRY RUN[/cyan] would query [dim]mise current <tool>[/dim] "
-            f"for each of [dim]{specs}[/dim], prompt for selection, and run "
-            "[dim]mise use -g <spec>[/dim] for each selected runtime."
+            f"[cyan]DRY RUN[/cyan] would prompt Install/Uninstall, then over "
+            f"[dim]{specs}[/dim] run [dim]mise use -g <spec>[/dim] or "
+            "[dim]mise uninstall <spec>[/dim] for each selected runtime."
         )
         return
 
-    choices: list[questionary.Choice] = [
-        questionary.Choice(title="← Back", value="__back"),
-    ]
-    for rt in RUNTIMES:
-        already = _has_global(_tool_from_spec(rt.spec))
-        choices.append(
-            questionary.Choice(
-                title=f"{rt.title}  [dim]({rt.spec})[/dim]",
-                value=rt.spec,
-                description=rt.description,
-                disabled="installed (global)" if already else None,
-            )
-        )
-
-    selected = questionary.checkbox(
-        "Pick runtimes to install with mise (space to toggle, enter to confirm — "
-        "pick '← Back' alone to return):",
-        choices=choices,
-    ).ask()
-
-    if not selected or "__back" in selected:
+    action = _pick_action()
+    if action is None:
         console.print("[yellow]Returning to menu.[/yellow]")
         return
-    selected = [s for s in selected if s != "__back"]
+
+    selected = _picker(action)
+    if not selected:
+        console.print("[yellow]Returning to menu.[/yellow]")
+        return
 
     for spec in selected:
-        console.rule(f"[bold]mise use -g {spec}[/bold]")
-        result = mutating_run(["mise", "use", "-g", spec])
+        if action == "install":
+            cmd = ["mise", "use", "-g", spec]
+        else:
+            cmd = ["mise", "uninstall", spec]
+        console.rule(f"[bold]{' '.join(cmd)}[/bold]")
+        result = mutating_run(cmd)
         if result.returncode != 0:
-            console.print(f"[red]mise use -g {spec} failed (rc={result.returncode}).[/red]")
+            console.print(
+                f"[red]{' '.join(cmd)} failed (rc={result.returncode}).[/red]"
+            )
             if not questionary.confirm(
-                "Continue with the remaining runtimes?", default=True
+                f"Continue with the remaining {action}s?", default=True
             ).ask():
                 return
 
     console.rule("[bold green]Done[/bold green]")
-    console.print(
-        "[dim]Open a new shell (or run `mise activate zsh` in this one) so the "
-        "runtimes land on PATH.[/dim]"
-    )
+    if action == "install":
+        console.print(
+            "[dim]Open a new shell (or run `mise activate zsh` in this one) so the "
+            "runtimes land on PATH.[/dim]"
+        )
 
 
 module = Module(

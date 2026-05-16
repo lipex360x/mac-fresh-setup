@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
 
+### Added (Install / Uninstall)
+- `Homebrew packages` and `Mise runtimes` now prompt **Install / Uninstall / Back** before showing the checkbox. In install mode, already-installed items are greyed out (same as before). In uninstall mode, the picker inverts: not-installed items are greyed out, installed ones are selectable; selected items run `brew uninstall <name>` (with `--cask` when needed) or `mise uninstall <spec>`. Same module, two intents — no duplicate menu entry.
+
 ### Added (Claude Code)
 - Module **Claude Code** (`src/modules/package_manager/claude_code.py`) at the top of the Package manager category. Idempotency via `shutil.which("claude")`. Install path: `curl -fsSL https://claude.ai/install.sh | bash`. No brew, no Node, no PEP — runs on a truly fresh macOS. Lands before Homebrew in the menu so you can have Claude Code available immediately on a new machine.
 
