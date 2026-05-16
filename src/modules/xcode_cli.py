@@ -17,6 +17,8 @@ _TRIGGER_FILE = Path("/tmp/.com.apple.dt.CommandLineTools.installondemand.in-pro
 _POLL_INTERVAL_SECONDS = 5
 _DEFAULT_TIMEOUT_SECONDS = 900
 _LIST_TIMEOUT_SECONDS = 180
+_INSTALLER_GRACE_SECONDS = 15
+_INSTALLER_PROCESS_NAME = "Install Command Line Developer Tools"
 
 
 def _developer_dir() -> Path | None:
@@ -102,13 +104,23 @@ def _install_via_softwareupdate(label: str) -> bool:
     return result.returncode == 0
 
 
+def _installer_running() -> bool:
+    result = subprocess.run(
+        ["pgrep", "-x", _INSTALLER_PROCESS_NAME],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
 def _install_via_dialog() -> bool:
     console.print(
         Panel.fit(
             "[bold]Falling back to the GUI install dialog.[/bold]\n"
             "A system dialog will open in a moment — click "
             "[bold cyan]Install[/bold cyan] and let it finish.\n"
-            "This script will detect completion automatically.",
+            "This script will detect completion automatically; if the dialog "
+            "is closed without installing, it bails out promptly.",
             border_style="cyan",
         )
     )
@@ -123,6 +135,9 @@ def _install_via_dialog() -> bool:
         return False
 
     deadline = time.monotonic() + _DEFAULT_TIMEOUT_SECONDS
+    grace_deadline = time.monotonic() + _INSTALLER_GRACE_SECONDS
+    installer_seen = False
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[cyan]Waiting for CLT install (Ctrl+C to abort)"),
@@ -133,6 +148,24 @@ def _install_via_dialog() -> bool:
         while time.monotonic() < deadline:
             if _clt_installed():
                 return True
+
+            running = _installer_running()
+            if running:
+                installer_seen = True
+            elif installer_seen:
+                console.print(
+                    "[yellow]Installer process closed without installing CLT "
+                    "(dialog cancelled or failed).[/yellow]"
+                )
+                return False
+            elif time.monotonic() > grace_deadline:
+                console.print(
+                    f"[yellow]Installer process [dim]{_INSTALLER_PROCESS_NAME}[/dim] "
+                    f"never started within {_INSTALLER_GRACE_SECONDS}s — "
+                    "the dialog likely could not open.[/yellow]"
+                )
+                return False
+
             time.sleep(_POLL_INTERVAL_SECONDS)
     return False
 
