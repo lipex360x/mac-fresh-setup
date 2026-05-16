@@ -14,6 +14,11 @@ _INSTALL_URL_POSIX = "https://claude.ai/install.sh"
 _INSTALL_URL_WINDOWS = "https://claude.ai/install.ps1"
 _ALIAS_LINE = "alias cc='claude --dangerously-skip-permissions'"
 _ALIAS_BLOCK = f"\n### CLAUDE CODE\n{_ALIAS_LINE}\n"
+_BASH_PROFILE_SOURCE_LINE = "[ -f ~/.bashrc ] && source ~/.bashrc"
+_BASH_PROFILE_BLOCK = (
+    "\n### load ~/.bashrc on login shells (Git Bash)\n"
+    f"{_BASH_PROFILE_SOURCE_LINE}\n"
+)
 
 
 def _claude_installed() -> bool:
@@ -53,6 +58,34 @@ def _inject_alias() -> None:
     console.print(
         f"[green]Added `cc` alias to {rc}.[/green] Reopen your shell (or "
         f"run [dim]source {rc}[/dim]) to use it."
+    )
+
+
+def _ensure_login_shell_bridge() -> None:
+    if sys.platform != "win32":
+        return
+    bp = Path.home() / ".bash_profile"
+    if bp.exists() and _BASH_PROFILE_SOURCE_LINE in bp.read_text():
+        console.print(
+            f"[yellow]{bp} already sources ~/.bashrc — skipping.[/yellow]"
+        )
+        return
+    if runtime.dry_run:
+        console.print(
+            f"[cyan]DRY RUN[/cyan] would append "
+            f"[dim]{_BASH_PROFILE_SOURCE_LINE}[/dim] to [dim]{bp}[/dim]."
+        )
+        return
+    mutating_check(f"bridge {bp} → ~/.bashrc")
+    existing = bp.read_text() if bp.exists() else ""
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    bp.write_text(existing + _BASH_PROFILE_BLOCK)
+    console.print(
+        f"[green]Wired {bp} to source ~/.bashrc on login.[/green] Git Bash "
+        "opens as a login shell, so this is required for the `cc` alias to "
+        "appear in new windows. Run [dim]exec bash -l[/dim] (or open a new "
+        "Git Bash window) to reload."
     )
 
 
@@ -109,11 +142,13 @@ def install_claude_code() -> None:
             f"[yellow]Claude Code already installed at {path} — skipping binary install.[/yellow]"
         )
         _inject_alias()
+        _ensure_login_shell_bridge()
         return
 
     if runtime.dry_run:
         console.print(f"[cyan]DRY RUN[/cyan] would {_install_summary()}.")
         _inject_alias()
+        _ensure_login_shell_bridge()
         return
 
     console.print(
@@ -142,6 +177,7 @@ def install_claude_code() -> None:
         )
 
     _inject_alias()
+    _ensure_login_shell_bridge()
 
 
 module = Module(
