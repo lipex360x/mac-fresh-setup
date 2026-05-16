@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-16
+
+### Changed
+- Module menu shows only the short title; the per-module description no longer renders inline (kept on the `Module` dataclass for future use).
+- Shortened module titles: `Grant Root Access (sudoers NOPASSWD)` → `Grant Root Access`; `SSH Key (RSA 4096)` → `SSH Key`.
+
 ## [0.1.0] — 2026-05-16
 
 ### Added
@@ -18,5 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` with `uv` install prerequisite and one-line run command.
 - `docs/fresh-install.md` — reference gist content used as source of truth.
 
-[Unreleased]: https://github.com/lipex360x/mac-fresh-setup/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/lipex360x/mac-fresh-setup/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/lipex360x/mac-fresh-setup/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/lipex360x/mac-fresh-setup/releases/tag/v0.1.0

@@ -130,13 +130,13 @@ def generate_ssh_key() -> None:
 MODULES: list[Module] = [
     Module(
         key="sudoers",
-        title="Grant Root Access (sudoers NOPASSWD)",
+        title="Grant Root Access",
         description="Adds the current user to /etc/sudoers.d with NOPASSWD.",
         run=grant_root_access,
     ),
     Module(
         key="ssh_key",
-        title="SSH Key (RSA 4096)",
+        title="SSH Key",
         description="Generates ~/.ssh/id_rsa if missing and prints the public key.",
         run=generate_ssh_key,
     ),
@@ -162,7 +162,7 @@ def main() -> None:
     ))
 
     choices = [
-        questionary.Choice(title=f"{m.title} — {m.description}", value=m.key, checked=True)
+        questionary.Choice(title=m.title, value=m.key, checked=True)
         for m in MODULES
     ]
     selected = questionary.checkbox(
