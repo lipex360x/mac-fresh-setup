@@ -4,14 +4,18 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 import questionary
 
 from console import console
 from models import Module
 from runtime import runtime
-from safe import mutating_run
+from safe import mutating_check, mutating_run
 from style import QUESTIONARY_STYLE
+
+_ACTIVATE_LINE_BASH = 'command -v mise >/dev/null && eval "$(mise activate bash)"'
+_ACTIVATE_BLOCK_BASH = f"\n### mise activate\n{_ACTIVATE_LINE_BASH}\n"
 
 
 @dataclass(frozen=True)
@@ -112,6 +116,40 @@ def _picker(action: str) -> list[str]:
     return [s for s in selected if s != "__back"]
 
 
+def _ensure_mise_activate_on_windows() -> None:
+    """Inject `eval "$(mise activate bash)"` into ~/.bashrc on Windows.
+
+    Mac users get the equivalent line through the bundled Zsh stack's
+    .zshrc; Linux users typically wire it themselves. Without this on
+    Windows the runtimes that `mise use -g` installs never show up on
+    PATH (no shims) and `bun --version` etc. fail.
+
+    Idempotent: checks for the exact activate line before writing.
+    """
+    if sys.platform != "win32":
+        return
+    bashrc = Path.home() / ".bashrc"
+    existing = bashrc.read_text() if bashrc.exists() else ""
+    if _ACTIVATE_LINE_BASH in existing:
+        return
+    if runtime.dry_run:
+        console.print(
+            f"[cyan]DRY RUN[/cyan] would append [dim]{_ACTIVATE_LINE_BASH}[/dim] "
+            f"to [dim]{bashrc}[/dim] so mise shims land on PATH in new Git "
+            "Bash windows."
+        )
+        return
+    mutating_check(f"append mise activate to {bashrc}")
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    bashrc.write_text(existing + _ACTIVATE_BLOCK_BASH)
+    console.print(
+        f"[green]Wired `mise activate bash` into {bashrc}.[/green] Run "
+        "[dim]exec bash -l[/dim] (or open a new Git Bash window) so the "
+        "shims show up on PATH."
+    )
+
+
 def install_mise_runtimes() -> None:
     if not _mise_available():
         installer = (
@@ -124,6 +162,8 @@ def install_mise_runtimes() -> None:
             "and reopen the menu."
         )
         return
+
+    _ensure_mise_activate_on_windows()
 
     if runtime.dry_run:
         specs = ", ".join(r.spec for r in RUNTIMES)
