@@ -20,6 +20,7 @@ class Cask:
 
 CASKS: list[Cask] = [
     Cask("iterm2", "Drop-in replacement for Terminal.app with panes, profiles, and search"),
+    Cask("visual-studio-code", "Microsoft Visual Studio Code — required for the Editor category"),
 ]
 
 

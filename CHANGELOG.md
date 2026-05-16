@@ -17,7 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New category **Styling** with module **iTerm2 preferences** (`src/modules/styling/iterm2_prefs.py`). Reads the plist source from the `ITERM2_PREFS_URL` env var (or prompts if unset), fetches bytes from a URL or local path, backs up any existing `~/Library/Preferences/com.googlecode.iterm2.plist`, writes the new file, and runs `killall cfprefsd` to invalidate macOS's preference cache. On any write failure, falls back to `~/Downloads/com.googlecode.iterm2.plist` and prints manual import instructions (cp + killall cfprefsd, or iTerm2's "Load settings from custom folder or URL").
 
 ### Changed (layout)
-- `src/modules/` now nests one subdirectory per category: `system/`, `package_manager/`, `styling/`. Internal module imports (`from console import console`, etc.) unchanged — `src/` is the sys.path root, the new subdirs are just import namespaces. `src/categories.py` imports each module from its category package.
+- `src/modules/` now nests one subdirectory per category: `system/`, `package_manager/`, `styling/`, `editor/`. Internal module imports (`from console import console`, etc.) unchanged — `src/` is the sys.path root, the new subdirs are just import namespaces. `src/categories.py` imports each module from its category package.
+
+### Added (Editor category)
+- New category **Editor** with two modules under `src/modules/editor/`:
+  - **VSCode extensions** (`vscode_extensions.py`) — checkbox of curated extensions (`dbaeumer.vscode-eslint`, `esbenp.prettier-vscode`, `eamodio.gitlens`); already-installed greyed out via `code --list-extensions`; installs via `code --install-extension <id>` with live output.
+  - **VSCode settings** (`vscode_settings.py`) — same pattern as the iTerm2 prefs sync but for `~/Library/Application Support/Code/User/settings.json`; reads source from `VSCODE_SETTINGS_URL` env var or prompt; backs up existing file before writing.
+- Both modules locate the `code` CLI via `shutil.which`, falling back to the bundled binary at `/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code`.
+- Added `visual-studio-code` to the curated Homebrew casks list — install it before the Editor modules.
 - `--dry-run` flag: each module checks state, prints what it **would** do, then returns without touching the system. Useful to verify idempotency and inspect generated commands.
 - `src/runtime.py` — module-level `Runtime` dataclass carrying global flags. `app.py` sets `runtime.dry_run` from `argparse` before the menu starts; modules read it on entry.
 - Module: **XCode Command Line Tools** (`src/modules/xcode_cli.py`) under the System category. On install, triggers `xcode-select --install` (GUI dialog), shows an instruction panel, blocks on `press_any_key_to_continue`, then verifies. Required prerequisite for Homebrew.

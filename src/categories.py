@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from models import Category
+from modules.editor import vscode_extensions, vscode_settings
 from modules.package_manager import homebrew_casks, homebrew_formulae, homebrew_install
 from modules.styling import iterm2_prefs
 from modules.system import ssh_key, sudoers, xcode_cli
@@ -24,5 +25,10 @@ CATEGORIES: list[Category] = [
         key="styling",
         title="Styling",
         modules=(iterm2_prefs.module,),
+    ),
+    Category(
+        key="editor",
+        title="Editor",
+        modules=(vscode_extensions.module, vscode_settings.module),
     ),
 ]
