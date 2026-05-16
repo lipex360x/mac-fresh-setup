@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import platform
 import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -16,7 +18,7 @@ from models import Module
 from runtime import runtime
 from safe import mutating_check, mutating_run
 
-_PG_VERSION = "17.4"
+_PG_VERSION = "17.10"
 _PG_REV = "1"
 _DEFAULT_PORT = 5432
 
@@ -36,6 +38,48 @@ def _platform_slug() -> str:
     if sys.platform == "win32":
         return "windows-x64"
     return "linux-x64"
+
+
+def _is_apple_silicon() -> bool:
+    return sys.platform == "darwin" and platform.machine() == "arm64"
+
+
+def _rosetta_works() -> bool:
+    result = subprocess.run(
+        ["arch", "-x86_64", "/usr/bin/true"],
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
+def _ensure_rosetta() -> bool:
+    if not _is_apple_silicon():
+        return True
+    if _rosetta_works():
+        return True
+    console.print(
+        "[yellow]EDB PostgreSQL ships x86_64 macOS binaries only. "
+        "Installing Rosetta 2 so the binaries can run on Apple Silicon.[/yellow]\n"
+        "[dim]This requires sudo and downloads ~150 MB from Apple. "
+        "Skip with Ctrl+C if you already have an arm64 build elsewhere.[/dim]"
+    )
+    rc = mutating_run([
+        "sudo",
+        "softwareupdate",
+        "--install-rosetta",
+        "--agree-to-license",
+    ]).returncode
+    if rc != 0:
+        console.print(f"[red]Rosetta install failed (rc={rc}).[/red]")
+        return False
+    if not _rosetta_works():
+        console.print(
+            "[red]Rosetta installed but `arch -x86_64` still fails.[/red] "
+            "Try a new terminal session, then re-run Install."
+        )
+        return False
+    console.print("[green]Rosetta 2 installed.[/green]")
+    return True
 
 
 def _archive_name() -> str:
@@ -137,6 +181,9 @@ def _extract_zip_preserving_perms(archive: Path, target: Path) -> None:
 
 
 def _do_install() -> None:
+    if not _ensure_rosetta():
+        return
+
     if _binaries_present():
         console.print(
             f"[yellow]Binaries already at {_install_dir()} — skipping download.[/yellow]"

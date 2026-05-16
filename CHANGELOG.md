@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
 
+### Fixed (PostgreSQL on Apple Silicon)
+- EDB only ships **x86_64 macOS** PostgreSQL binaries — no arm64 native build (confirmed across all 17.x and 18.x). Result: on Apple Silicon Macs the freshly-extracted `initdb` fails with `dyld: Library not loaded: ... (slice is not valid mach-o file)`.
+- Fix: detect Apple Silicon (`platform.machine() == "arm64"`) and ensure Rosetta 2 is present before downloading. Detection via `arch -x86_64 /usr/bin/true` exit code. If missing, runs `sudo softwareupdate --install-rosetta --agree-to-license` (one-time, ~150 MB from Apple).
+- Bumped default version to **17.10** (latest current patch as of May 2026; previous default `17.4` was already stale).
+- ZIP extraction now preserves Unix mode bits via a small helper — Python's `ZipFile.extractall` drops the executable bit so EDB's `bin/initdb` would extract as `0644` and fail on first run.
+
 ### Added (PostgreSQL)
 - Second module under Databases: **PostgreSQL (standalone binaries)** (`src/modules/databases/postgres.py`). Mirrors the MySQL design end-to-end — same install/uninstall flow, same wrapper pattern, same config.json shape.
 - Install path: downloads `https://get.enterprisedb.com/postgresql/postgresql-17.4-1-osx-binaries.zip` (EDB binary distribution, no source compile), extracts to `~/.local/share/mac-fresh-setup/postgres/installs/17.4/pgsql/`. PostgreSQL doesn't have an official tarball on `postgresql.org` for macOS so EDB is the de-facto portable distribution; same publisher provides `windows-x64-binaries.zip` for the future Windows variant.
