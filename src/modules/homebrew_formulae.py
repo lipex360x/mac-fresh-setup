@@ -37,6 +37,17 @@ def _is_installed(name: str) -> bool:
     return result.returncode == 0 and name in result.stdout
 
 
+def _installed_set() -> set[str]:
+    result = subprocess.run(
+        ["brew", "list", "--formula", "--versions"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return set()
+    return {line.split()[0] for line in result.stdout.splitlines() if line.split()}
+
+
 def install_formulae() -> None:
     if not _brew_available():
         console.print(
@@ -54,13 +65,19 @@ def install_formulae() -> None:
         )
         return
 
+    installed = _installed_set()
     choices: list[questionary.Choice] = [
         questionary.Choice(title="← Back", value="__back"),
     ]
-    choices.extend(
-        questionary.Choice(title=f.name, value=f.name, description=f.description)
-        for f in FORMULAE
-    )
+    for f in FORMULAE:
+        choices.append(
+            questionary.Choice(
+                title=f.name,
+                value=f.name,
+                description=f.description,
+                disabled="installed" if f.name in installed else None,
+            )
+        )
     selected = questionary.checkbox(
         "Pick formulae to install (space to toggle, enter to confirm — "
         "pick '← Back' alone to return):",
