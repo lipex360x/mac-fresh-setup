@@ -103,7 +103,11 @@ def _start_daemon(cfg: dict) -> None:
             f"--port={cfg['port']}",
             f"--log-error={LOG}",
         ]
-        creationflags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        creationflags = (
+            subprocess.DETACHED_PROCESS
+            | subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.CREATE_NO_WINDOW
+        )
         with LOG.open("a") as log:
             subprocess.Popen(
                 cmd,
