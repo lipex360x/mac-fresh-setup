@@ -116,10 +116,24 @@ def _download_and_extract() -> None:
         target = _INSTALLS / _PG_VERSION
         target.mkdir(parents=True, exist_ok=True)
         console.print(f"[dim]Extracting to {target}...[/dim]")
-        with zipfile.ZipFile(archive) as zf:
-            zf.extractall(target)
+        _extract_zip_preserving_perms(archive, target)
     finally:
         archive.unlink(missing_ok=True)
+
+
+def _extract_zip_preserving_perms(archive: Path, target: Path) -> None:
+    """Extract a ZIP preserving Unix mode bits.
+
+    Python's zipfile.extractall drops the executable bit, which leaves
+    EDB's bin/ binaries non-runnable. We replay the mode from the
+    ZIP entry's external_attr (upper 16 bits) after each extract.
+    """
+    with zipfile.ZipFile(archive) as zf:
+        for info in zf.infolist():
+            extracted = Path(zf.extract(info, target))
+            mode = info.external_attr >> 16
+            if mode:
+                extracted.chmod(mode & 0o7777)
 
 
 def _do_install() -> None:
