@@ -87,6 +87,9 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 - **Zsh stack** — installs Oh-my-zsh, the Spaceship theme, and the bundled `config/zsh/.zshrc` in one go.
 - **VSCode stack** — installs the bundled extensions list (`config/vscode/extensions.txt`) and overwrites `settings.json` from `config/vscode/settings.json`.
 
+**Databases**
+- **MySQL (standalone tarball)** — downloads the official MySQL 8.4 tarball into `~/.local/share/mac-fresh-setup/mysql/`. No brew, no sudo, no Docker. Installs four wrappers in `~/.local/bin/` for day-to-day control: `mysql-up` (`-p PORT`, `--pass PASS`), `mysql-down`, `mysql-status`, `mysql-cli`. Uninstall has two flavours: **keep data** (only removes binaries) or **wipe everything**.
+
 All modules are idempotent — re-running is safe.
 
 <div align="right"><a href="#mac-fresh-setup">↑ Back to top</a></div>
