@@ -258,6 +258,14 @@ def _do_uninstall_wipe() -> None:
             "wiping.[/yellow]"
         )
         return
+    confirmed = questionary.confirm(
+        f"This will PERMANENTLY delete {_ROOT} (binaries, data, config) "
+        f"and the four wrappers in {_BIN_DIR}. Continue?",
+        default=False,
+    ).ask()
+    if not confirmed:
+        console.print("[yellow]Aborted — nothing removed.[/yellow]")
+        return
     if _ROOT.exists():
         mutating_check(f"rm -rf {_ROOT}")
         shutil.rmtree(_ROOT, ignore_errors=True)
