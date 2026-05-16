@@ -76,13 +76,16 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 
 **System**
 - **Grant Root Access** — adds the current user to `/etc/sudoers.d` with `NOPASSWD`.
-- **XCode Command Line Tools** — triggers `xcode-select --install` if missing, waits for the system dialog to finish, then verifies via `pkgutil`.
+- **XCode Command Line Tools** — installs Command Line Tools via `softwareupdate` (live progress) with `xcode-select --install` GUI dialog fallback; detection via `xcode-select -p` + clang existence.
 - **SSH Key** — generates `~/.ssh/id_rsa` (RSA 4096) if missing, fixes permissions, prints the public key to paste into GitHub.
+
+**Package manager**
+- **Homebrew** — runs the official install script with `NONINTERACTIVE=1`, then appends `brew shellenv` to `~/.zprofile`.
 
 All modules are idempotent — re-running is safe.
 
 ## Roadmap
 
-Not implemented yet: Homebrew + formulae/casks, Oh-my-zsh + Spaceship, asdf languages, VSCode extensions, git config + `gh auth`.
+Not implemented yet: Homebrew formulae/casks, Oh-my-zsh + Spaceship, asdf languages, VSCode extensions, git config + `gh auth`.
 
 See `CHANGELOG.md` for the full history. Source reference: `docs/fresh-install.md`.
