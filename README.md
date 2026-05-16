@@ -80,6 +80,7 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 - **SSH Key** — generates `~/.ssh/id_rsa` (RSA 4096) if missing, fixes permissions, prints the public key to paste into GitHub.
 
 **Package manager**
+- **Claude Code** — installs Anthropic's CLI via the official `curl https://claude.ai/install.sh | bash` route. No brew, no Node required.
 - **Homebrew** — runs the official install script with `NONINTERACTIVE=1`, then appends `brew shellenv` to `~/.zprofile`.
 - **Homebrew packages** — single checkbox over the curated list (formulae + casks together; cask items tagged `[cask]`). Installed items show as greyed out. Dispatches to `brew install` or `brew install --cask` automatically.
 - **Mise runtimes** — checkbox over language runtimes (Node.js LTS, Bun latest, Java LTS, PHP 8.3). Each entry maps to `mise use -g <spec>`. Already-set runtimes greyed out.
