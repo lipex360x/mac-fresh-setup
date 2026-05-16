@@ -75,40 +75,104 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 ## Modules available
 
 **System**
-- **Grant Root Access** — adds the current user to `/etc/sudoers.d` with `NOPASSWD`.
+- **Grant Root Access** — adds the current user to `/etc/sudoers.d` with `NOPASSWD` (validated via `visudo -cf`).
 - **XCode Command Line Tools** — installs Command Line Tools via `softwareupdate` (live progress) with `xcode-select --install` GUI dialog fallback; detection via `xcode-select -p` + clang existence.
 - **SSH Key** — generates `~/.ssh/id_rsa` (RSA 4096) if missing, fixes permissions, prints the public key to paste into GitHub.
 
 **Package manager**
-- **Claude Code** — installs Anthropic's CLI via the official `curl https://claude.ai/install.sh | bash` route. No brew, no Node required.
+- **Claude Code** — installs Anthropic's CLI via the official `curl https://claude.ai/install.sh | bash` route. No brew, no Node required — runs on a fresh Mac.
 - **Homebrew** — runs the official install script with `NONINTERACTIVE=1`, then appends `brew shellenv` to `~/.zprofile`.
-- **Homebrew packages** — first prompts **Install / Uninstall / Back**, then shows only the actionable items: install mode lists not-installed entries (formulae + casks together; cask items tagged `[cask]`), uninstall mode lists only installed ones. Dispatches to `brew install`/`brew uninstall` (with `--cask` when needed).
-- **Mise runtimes** — same Install/Uninstall flow over the runtime list (Node.js LTS, Bun latest, Java LTS Temurin 25, PHP 8.3). Maps to `mise use -g <spec>` or `mise uninstall <spec>`.
+- **Homebrew packages** — prompts **Install / Uninstall / Back**, then shows only the actionable items (install mode hides already-installed, uninstall mode hides not-installed). Formulae and casks live in the same list, casks tagged `[cask]`. Cask-specific uninstall cleanup paths are honoured (e.g. VSCode wipes `~/Library/Application Support/Code` etc.).
+- **Mise runtimes** — same Install / Uninstall flow over `mise` runtimes: Node.js LTS, Bun latest, Java LTS (Temurin 25), Maven latest, Gradle latest, PHP 8.3.
 
 **Styling**
-- **iTerm2 preferences** — downloads the bundled plist from `config/iterm2/com.googlecode.iterm2.plist` (override with `ITERM2_PREFS_URL`) and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, then runs `killall cfprefsd`.
+- **iTerm2 preferences** — downloads the bundled plist from `config/iterm2/com.googlecode.iterm2.plist` (override with `ITERM2_PREFS_URL`) and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, runs `killall cfprefsd`.
 - **Zsh stack** — installs Oh-my-zsh, the Spaceship theme, and the bundled `config/zsh/.zshrc` in one go.
 - **VSCode stack** — installs the bundled extensions list (`config/vscode/extensions.txt`) and overwrites `settings.json` from `config/vscode/settings.json`. Overrides via `VSCODE_EXTENSIONS_URL` / `VSCODE_SETTINGS_URL`.
 
-### Exporting your iTerm2 prefs from another Mac
-
-```sh
-cp ~/Library/Preferences/com.googlecode.iterm2.plist /path/to/share/iterm2.plist
-```
-
-Upload that file to a gist or any HTTP location, then on the target machine:
-
-```sh
-export ITERM2_PREFS_URL="https://gist.githubusercontent.com/<you>/<hash>/raw/iterm2.plist"
-uv run --refresh "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py?v=$RANDOM"
-```
-
-The Styling → iTerm2 preferences module will pick up the env var automatically.
-
 All modules are idempotent — re-running is safe.
 
-## Roadmap
+## Recommended order on a fresh Mac
 
-Not implemented yet: Languages via mise (node/python/java/bun), Oh-my-zsh + Spaceship, VSCode extensions, git config + `gh auth`.
+1. System → Grant Root Access (so subsequent `sudo` doesn't ask for a password)
+2. System → XCode Command Line Tools
+3. System → SSH Key
+4. Package manager → Claude Code (optional, but cheap)
+5. Package manager → Homebrew
+6. Package manager → Homebrew packages → Install (pick the apps + fonts you want)
+7. Package manager → Mise runtimes → Install (pick runtimes)
+8. Styling → iTerm2 preferences (needs Fira Code already from step 6)
+9. Styling → Zsh stack
+10. Styling → VSCode stack (needs visual-studio-code already from step 6)
 
-See `CHANGELOG.md` for the full history. Source reference: `docs/fresh-install.md`.
+## Adding new items
+
+Each picker is backed by a small frozen dataclass list — adding an option is one line:
+
+```python
+# src/modules/package_manager/homebrew_packages.py
+Package("postman", "cask", "Postman API client"),
+Package("docker-desktop", "cask", "...", cleanup_paths=("Library/Containers/com.docker.docker",)),
+
+# src/modules/package_manager/mise_runtimes.py
+Runtime("Go latest", "go@latest", "Go toolchain"),
+```
+
+The full pattern is documented in `CLAUDE.md` under *Curated lists — how to add an item*.
+
+## Running PHP after installing it
+
+`mise use -g php@8.3` (Mise runtimes module) installs PHP **by compiling it from source** via the `asdf-php` plugin. There is no Homebrew bottle in this path — first install takes 5–10 minutes and needs C build tools.
+
+### 1. Make sure the build dependencies are present
+
+```sh
+brew install autoconf bison re2c gd libsodium pkg-config libpq libzip libxml2 \
+  openssl@3 libiconv libjpeg curl
+```
+
+Without these the build will fail mid-compile with cryptic linker errors. (We don't auto-install them yet — open an issue if you'd like that automated.)
+
+### 2. Install via the menu
+
+Package manager → Mise runtimes → Install → check `PHP 8.3` → enter. Live `mise use -g php@8.3` output streams below; wait for it.
+
+### 3. Pick up `php` in the shell
+
+Open a **new** terminal so `~/.zshrc` runs and `mise activate zsh` puts the shims on `PATH`. Verify:
+
+```sh
+which php
+# expected: /Users/you/.local/share/mise/shims/php
+
+php --version
+# expected: PHP 8.3.x (cli)
+```
+
+If `which php` still shows nothing or an old path, check that `eval "$(mise activate zsh)"` is in `~/.zshrc` (the bundled config does this) and that you opened a fresh shell.
+
+### 4. Run something
+
+```sh
+# one-off script
+php script.php
+
+# REPL
+php -a
+
+# built-in dev server serving the current directory at http://localhost:8000
+php -S localhost:8000
+```
+
+### Troubleshooting
+
+- **Compile failed**: rerun the `brew install` from step 1, then `mise install php@8.3` (re-run the menu's Install option — it'll re-trigger the build).
+- **`php` not found after a successful install**: you forgot to reopen the shell. Either open a new terminal or run `source ~/.zshrc`.
+- **Wrong PHP version active**: `mise current php` shows the global default, `mise use -g php@8.3` re-pins it.
+- **Need a different version**: edit `Runtime("PHP 8.3", "php@8.3", ...)` in `mise_runtimes.py` to whatever you want (`php@8.4`, `php@8.2`, etc.) and re-run the module.
+
+## See also
+
+- `CHANGELOG.md` — full history (versions are progress checkpoints; git tags only for milestones).
+- `CLAUDE.md` — repo conventions, ship sequence, curated-list pattern.
+- `docs/fresh-install.md` — source-of-truth gist mirrored locally.
