@@ -61,7 +61,26 @@ Scope for v0.1 not yet decided — currently in planning conversation.
 ## Conventions
 
 - Each module must be idempotent (check before acting)
+- Each module must support `--dry-run`: after the idempotency check, if `runtime.dry_run` is true, print what would happen and `return` before any side effect
 - Interactive steps (`gh auth login`, `ssh-keygen` passphrase) require explicit user pause
 - No shell `cd` between commands — use absolute paths (Bash tool resets cwd)
 - Brew install uses `NONINTERACTIVE=1` to avoid prompts
 - Sudoers writes validated via `visudo -cf` before being copied into `/etc/sudoers.d/`
+
+## Ship sequence (every change)
+
+Default flow for any code change in this repo:
+
+1. **Test locally** — at minimum, smoke-test imports and the dry-run path of any module touched:
+   ```sh
+   uv run --with questionary --with rich python -c "
+   import sys; sys.path.insert(0, 'src')
+   from runtime import runtime; runtime.dry_run = True
+   from modules.<changed_module> import <run_fn>
+   <run_fn>()
+   "
+   ```
+2. **Update CHANGELOG.md** if behavior changed — add under `[Unreleased]` with `### Added/Changed/Why`. Bump to a new untagged `0.x.y` section once the change consolidates.
+3. **Update README.md** if invocation, flags, or user-visible features changed.
+4. **Commit** with conventional message (`feat:`, `fix:`, `refactor:`, `docs:`, etc.).
+5. **Push** to `origin/main`. Tag only on milestone releases (see `feedback_release_only_tags` in agent memory).
