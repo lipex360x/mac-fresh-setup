@@ -5,6 +5,7 @@ from modules import (
     homebrew_casks,
     homebrew_formulae,
     homebrew_install,
+    iterm2_prefs,
     ssh_key,
     sudoers,
     xcode_cli,
@@ -24,5 +25,10 @@ CATEGORIES: list[Category] = [
             homebrew_formulae.module,
             homebrew_casks.module,
         ),
+    ),
+    Category(
+        key="styling",
+        title="Styling",
+        modules=(iterm2_prefs.module,),
     ),
 ]

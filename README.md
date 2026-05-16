@@ -84,6 +84,24 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 - **Homebrew formulae** — checkbox menu of CLI tools (`mise`, `gh`); installs the selected ones via `brew install`.
 - **Homebrew casks** — checkbox menu of GUI apps (`iterm2`); installs the selected ones via `brew install --cask`.
 
+**Styling**
+- **iTerm2 preferences** — downloads a plist from `$ITERM2_PREFS_URL` (or a prompted URL / local path) and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, then runs `killall cfprefsd` so the new prefs are loaded on the next iTerm2 launch. Falls back to `~/Downloads/com.googlecode.iterm2.plist` with manual import instructions if direct write is blocked.
+
+### Exporting your iTerm2 prefs from another Mac
+
+```sh
+cp ~/Library/Preferences/com.googlecode.iterm2.plist /path/to/share/iterm2.plist
+```
+
+Upload that file to a gist or any HTTP location, then on the target machine:
+
+```sh
+export ITERM2_PREFS_URL="https://gist.githubusercontent.com/<you>/<hash>/raw/iterm2.plist"
+uv run --refresh "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py?v=$RANDOM"
+```
+
+The Styling → iTerm2 preferences module will pick up the env var automatically.
+
 All modules are idempotent — re-running is safe.
 
 ## Roadmap
