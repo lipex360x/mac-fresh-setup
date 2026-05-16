@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 
 import questionary
@@ -46,9 +47,22 @@ def _scoop_available() -> bool:
     return shutil.which("scoop") is not None
 
 
+def _scoop_cmd(args: list[str]) -> list[str]:
+    """Build a subprocess argv that invokes scoop.
+
+    On Windows `scoop` is a `.cmd` shim — Python's CreateProcess only
+    auto-resolves `.exe`, not PATHEXT. Prefix with `cmd /c` so the shim
+    is found by name.
+    """
+    base = ["scoop", *args]
+    if sys.platform == "win32":
+        return ["cmd", "/c", *base]
+    return base
+
+
 def _installed_packages() -> set[str]:
     result = subprocess.run(
-        ["scoop", "list"],
+        _scoop_cmd(["list"]),
         capture_output=True,
         text=True,
     )
@@ -70,7 +84,7 @@ def _installed_packages() -> set[str]:
 
 def _existing_buckets() -> set[str]:
     result = subprocess.run(
-        ["scoop", "bucket", "list"],
+        _scoop_cmd(["bucket", "list"]),
         capture_output=True,
         text=True,
     )
@@ -94,9 +108,10 @@ def _ensure_buckets(needed: set[str]) -> bool:
     missing = sorted(b for b in needed if b not in existing)
     for bucket in missing:
         repo = _REQUIRED_BUCKETS.get(bucket, "")
-        cmd = ["scoop", "bucket", "add", bucket]
+        args = ["bucket", "add", bucket]
         if repo:
-            cmd.append(repo)
+            args.append(repo)
+        cmd = _scoop_cmd(args)
         console.rule(f"[bold]{' '.join(cmd)}[/bold]")
         result = mutating_run(cmd)
         if result.returncode != 0:
@@ -200,7 +215,7 @@ def install_scoop_packages() -> None:
             return
 
     names = [p.name for p in selected]
-    cmd = ["scoop", action, *names]
+    cmd = _scoop_cmd([action, *names])
     console.rule(f"[bold]{' '.join(cmd)}[/bold]")
     result = mutating_run(cmd)
     if result.returncode != 0:

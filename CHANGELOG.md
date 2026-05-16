@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`scoop_packages` failed with `WinError 2 — The system cannot find the file specified`.** Python's `subprocess.run(["scoop", ...])` uses `CreateProcessW`, which only resolves `.exe` extensions — it does **not** honor `PATHEXT`. `scoop` on disk is `scoop.cmd` (a shim that delegates to PowerShell), so the bare-name lookup never found it. Added a `_scoop_cmd(args)` helper that prefixes `["cmd", "/c", ...]` on Windows and falls through unchanged elsewhere; all four call sites (`scoop list`, `scoop bucket list`, `scoop bucket add`, `scoop install/uninstall`) now route through it.
+
+### Fixed
 - **Scoop shims invisible in new Git Bash windows even after install.** Same family of bug as Claude Code on Windows: the Scoop installer adds `~/scoop/shims` to the **user PATH** via the registry (`HKCU\Environment`), but Git Bash inherits the PATH from the parent process at spawn time — opening a new window does not re-read the registry until logoff/logon. `scoop_install.py` now also appends `[ -d "$HOME/scoop/shims" ] && export PATH="$HOME/scoop/shims:$PATH"` to `~/.bash_profile` (idempotent), so the next login-shell Git Bash window picks up scoop without requiring a Windows logout. Bridge step runs on every path (already-installed, dry-run, fresh install).
 - **Drop noisy `Set-ExecutionPolicy` step from the Scoop installer command.** On managed Windows (Group Policy locking execution policy), `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force` raises a red `PermissionDenied` / `ExecutionPolicyOverride` error even though the install still succeeds (we already pass `-ExecutionPolicy Bypass` to the parent `powershell.exe`, which covers the session). The redundant call is removed.
 
