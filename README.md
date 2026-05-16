@@ -66,6 +66,7 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 8. Styling → iTerm2 preferences (needs Fira Code already from step 6)
 9. Styling → Zsh stack
 10. Styling → VSCode stack (needs `visual-studio-code` already from step 6)
+11. Databases → MySQL and/or PostgreSQL → Install (optional; standalone, no brew)
 
 <div align="right"><a href="#mac-fresh-setup">↑ Back to top</a></div>
 
@@ -405,7 +406,7 @@ Everything after the URL is passed straight to the script.
 | `MAC_FRESH_SETUP_SAFE=1` | env | Hard guard: any mutating subprocess call or file write aborts with a clear error. Combine with `--dry-run` for the safest possible inspection. |
 | `--refresh` | `uv run` | `uv` re-downloads `setup.py` instead of using its cache. |
 | `?v=$RANDOM` query in URL | URL | Cache-busts the GitHub raw CDN when the new push hasn't propagated yet. |
-| `MAC_FRESH_SETUP_REF=<ref>` | env | Pins the tarball ref. Default `main`. Use a tag like `v0.1.0` (the only tag today) to freeze the source. |
+| `MAC_FRESH_SETUP_REF=<ref>` | env | Pins the tarball ref. Default `main`. Use a tag like `v0.2.0` to freeze the source to that release. |
 | `ITERM2_PREFS_URL` | env | Override the iTerm2 plist source (defaults to the bundled `config/iterm2/com.googlecode.iterm2.plist`). |
 | `ZSHRC_URL` | env | Override the `.zshrc` source. |
 | `VSCODE_EXTENSIONS_URL` | env | Override the VSCode extensions list source. |

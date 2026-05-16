@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-16
+
+Major release. New categories (Package manager, Styling, Databases), full standalone-binary DB stack, install/uninstall flow, hard safety net, cyan UI face-lift.
+
 ### Added
 - **Package manager** category and module **Homebrew** (`src/modules/homebrew_install.py`). Fetches `Homebrew/install/HEAD/install.sh` via `curl`, pipes it into `/bin/bash` with `NONINTERACTIVE=1`, then appends `eval "$(<prefix>/bin/brew shellenv)"` to `~/.zprofile` (idempotent — only if line not present). Detects brew via `shutil.which` + the two canonical prefixes (`/opt/homebrew` Apple Silicon, `/usr/local` Intel). Dry-run prints the planned download + zprofile edit.
 - **In-process brew activation** — after installing/locating brew, the module runs `bash -c 'eval "$(brew shellenv)" && env'` and copies `PATH`, `HOMEBREW_PREFIX`, `HOMEBREW_CELLAR`, `HOMEBREW_REPOSITORY`, `MANPATH`, `INFOPATH` into `os.environ`. Subsequent modules in the same session (future formulae/casks) can call `brew` directly without reopening the user's terminal. The user's parent shell still needs `source ~/.zprofile` or a new terminal — child processes can't mutate the parent shell, that's a Unix limitation.
@@ -162,5 +166,6 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 - `README.md` with `uv` install prerequisite and one-line run command.
 - `docs/fresh-install.md` — reference gist content used as source of truth.
 
-[Unreleased]: https://github.com/lipex360x/mac-fresh-setup/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/lipex360x/mac-fresh-setup/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/lipex360x/mac-fresh-setup/releases/tag/v0.2.0
 [0.1.0]: https://github.com/lipex360x/mac-fresh-setup/releases/tag/v0.1.0
