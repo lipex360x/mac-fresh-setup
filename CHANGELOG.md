@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Module **Claude Code** (`src/modules/package_manager/claude_code.py`) at the top of the Package manager category. Idempotency via `shutil.which("claude")`. Install path: `curl -fsSL https://claude.ai/install.sh | bash`. No brew, no Node, no PEP — runs on a truly fresh macOS. Lands before Homebrew in the menu so you can have Claude Code available immediately on a new machine.
 
 ### Added (mise runtimes)
-- Module **Mise runtimes** (`src/modules/package_manager/mise_runtimes.py`) under Package manager. Checkbox over a `Runtime(title, spec, description)` list: Node.js LTS (`node@lts`), Bun latest (`bun@latest`), Java LTS (`java@temurin-21`), PHP 8.3 (`php@8.3`). Idempotency via `mise current <tool>`; already-set runtimes are greyed out. Each selected entry runs `mise use -g <spec>` with live output.
+- Module **Mise runtimes** (`src/modules/package_manager/mise_runtimes.py`) under Package manager. Checkbox over a `Runtime(title, spec, description)` list: Node.js LTS (`node@lts`), Bun latest (`bun@latest`), Java LTS (`java@temurin-25` — Java 25 LTS released Sep 2025), PHP 8.3 (`php@8.3`). Idempotency via `mise current <tool>`; already-set runtimes are greyed out. Each selected entry runs `mise use -g <spec>` with live output.
 
 ### Added (VSCode extensions list expansion)
 - Extended the curated VSCode extensions list with: `github.copilot`, `github.copilot-chat`, `ms-azuretools.vscode-docker`, `ms-python.python`, `redhat.java`, `oven.bun-vscode`, `editorconfig.editorconfig`, `usernamehw.errorlens`.

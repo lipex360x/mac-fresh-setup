@@ -22,7 +22,7 @@ class Runtime:
 RUNTIMES: list[Runtime] = [
     Runtime("Node.js LTS", "node@lts", "Latest Node.js LTS release — installed and set as the global default"),
     Runtime("Bun latest", "bun@latest", "Bun runtime — rolling release, latest stable"),
-    Runtime("Java LTS (Temurin 21)", "java@temurin-21", "Adoptium Temurin JDK 21 — current Java LTS"),
+    Runtime("Java LTS (Temurin 25)", "java@temurin-25", "Adoptium Temurin JDK 25 — current Java LTS (Sep 2025)"),
     Runtime("PHP 8.3", "php@8.3", "PHP 8.3 — current active branch (via mise/asdf-php plugin)"),
 ]
 
