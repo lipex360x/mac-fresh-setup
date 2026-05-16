@@ -38,6 +38,16 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 
 Each module prints the commands it would run, then returns without touching the system. Everything after the URL is passed straight to the script.
 
+### Safe mode (defense-in-depth)
+
+For local development or paranoid runs, set `MAC_FRESH_SETUP_SAFE=1`. Any state-changing subprocess call or non-subprocess mutation is blocked with a clear error and the script exits. Combine with `--dry-run` for the safest possible inspection:
+
+```sh
+MAC_FRESH_SETUP_SAFE=1 uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py" --dry-run
+```
+
+The smoke test (`scripts/smoke.py`) uses this together with a `subprocess.run` mock — that's how every change is validated locally before pushing.
+
 ### Bypassing cache
 
 Both `uv` and GitHub's raw CDN cache the script for a few minutes. If you just pushed a change and want the freshest copy, add `--refresh`:

@@ -10,6 +10,7 @@ from rich.panel import Panel
 from console import console
 from models import Module
 from runtime import runtime
+from safe import mutating_check, mutating_run
 
 
 def generate_ssh_key() -> None:
@@ -29,6 +30,7 @@ def generate_ssh_key() -> None:
         )
         return
     else:
+        mutating_check(f"create SSH key at {private_key}")
         ssh_dir.mkdir(mode=0o700, exist_ok=True)
         email = questionary.text(
             "Email for the SSH key comment (used to identify the key on GitHub):",
@@ -45,7 +47,7 @@ def generate_ssh_key() -> None:
                 border_style="cyan",
             )
         )
-        result = subprocess.run(
+        result = mutating_run(
             ["ssh-keygen", "-t", "rsa", "-b", "4096", "-C", email, "-f", str(private_key)],
         )
         if result.returncode != 0:

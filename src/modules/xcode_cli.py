@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
 import questionary
 from rich.panel import Panel
@@ -8,9 +9,10 @@ from rich.panel import Panel
 from console import console
 from models import Module
 from runtime import runtime
+from safe import mutating_run
 
 
-def _developer_dir() -> str | None:
+def _developer_dir() -> Path | None:
     result = subprocess.run(
         ["xcode-select", "-p"],
         capture_output=True,
@@ -18,24 +20,38 @@ def _developer_dir() -> str | None:
     )
     if result.returncode != 0:
         return None
-    path = result.stdout.strip()
-    return path or None
+    raw = result.stdout.strip()
+    return Path(raw) if raw else None
 
 
 def _clt_installed() -> bool:
-    result = subprocess.run(
-        ["pkgutil", "--pkg-info=com.apple.pkg.CLTools_Executables"],
-        capture_output=True,
-        text=True,
+    dev_dir = _developer_dir()
+    if dev_dir is None or not dev_dir.exists():
+        return False
+    return (dev_dir / "usr" / "bin" / "clang").exists()
+
+
+def _diagnose() -> None:
+    sel = subprocess.run(["xcode-select", "-p"], capture_output=True, text=True)
+    console.print(
+        f"[dim]xcode-select -p → rc={sel.returncode}, "
+        f"stdout={sel.stdout.strip()!r}, stderr={sel.stderr.strip()!r}[/dim]"
     )
-    return result.returncode == 0
+    dev = _developer_dir()
+    if dev is not None:
+        clang = dev / "usr" / "bin" / "clang"
+        console.print(
+            f"[dim]developer dir exists? {dev.exists()} — "
+            f"clang at {clang} exists? {clang.exists()}[/dim]"
+        )
 
 
 def install_xcode_cli() -> None:
     if _clt_installed():
-        path = _developer_dir() or "unknown"
+        dev = _developer_dir()
         console.print(
-            f"[yellow]XCode Command Line Tools already installed (developer dir: {path}) — skipping.[/yellow]"
+            f"[yellow]XCode Command Line Tools already installed "
+            f"(developer dir: {dev}) — skipping.[/yellow]"
         )
         return
 
@@ -43,7 +59,7 @@ def install_xcode_cli() -> None:
         console.print(
             "[cyan]DRY RUN[/cyan] would run [dim]xcode-select --install[/dim], "
             "wait for the GUI dialog to finish, then verify via "
-            "[dim]pkgutil --pkg-info=com.apple.pkg.CLTools_Executables[/dim]."
+            "[dim]xcode-select -p[/dim] + clang existence."
         )
         return
 
@@ -57,7 +73,7 @@ def install_xcode_cli() -> None:
         )
     )
 
-    trigger = subprocess.run(
+    trigger = mutating_run(
         ["xcode-select", "--install"],
         capture_output=True,
         text=True,
@@ -71,14 +87,18 @@ def install_xcode_cli() -> None:
 
     if not _clt_installed():
         console.print(
-            "[red]Command Line Tools not detected after install. "
-            "Re-run this module after the dialog completes.[/red]"
+            "[red]Command Line Tools not detected after install.[/red] Diagnostic:"
+        )
+        _diagnose()
+        console.print(
+            "[yellow]If the dialog is still running, wait for it to finish and "
+            "re-run this module.[/yellow]"
         )
         return
 
-    path = _developer_dir() or "unknown"
+    dev = _developer_dir()
     console.print(
-        f"[green]XCode Command Line Tools installed (developer dir: {path}).[/green]"
+        f"[green]XCode Command Line Tools installed (developer dir: {dev}).[/green]"
     )
 
 

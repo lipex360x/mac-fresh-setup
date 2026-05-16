@@ -10,7 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `--dry-run` flag: each module checks state, prints what it **would** do, then returns without touching the system. Useful to verify idempotency and inspect generated commands.
 - `src/runtime.py` — module-level `Runtime` dataclass carrying global flags. `app.py` sets `runtime.dry_run` from `argparse` before the menu starts; modules read it on entry.
-- Module: **XCode Command Line Tools** (`src/modules/xcode_cli.py`) under the System category. Idempotency check via `pkgutil --pkg-info=com.apple.pkg.CLTools_Executables`; on install, triggers `xcode-select --install` (GUI dialog), shows an instruction panel, blocks on `press_any_key_to_continue`, then verifies. Required prerequisite for Homebrew.
+- Module: **XCode Command Line Tools** (`src/modules/xcode_cli.py`) under the System category. On install, triggers `xcode-select --install` (GUI dialog), shows an instruction panel, blocks on `press_any_key_to_continue`, then verifies. Required prerequisite for Homebrew.
+- `src/safe.py` — `MAC_FRESH_SETUP_SAFE=1` hard guard. `mutating_run(cmd)` wraps subprocess calls that change state; `mutating_check(description)` precedes non-subprocess mutations (mkdir, file writes, chmod-on-new-files). When SAFE is set, either helper prints the blocked command and `SystemExit(1)`. Independent from `--dry-run` — dry-run is for inspection, SAFE is for defense in depth during local testing.
+- `scripts/smoke.py` — single-command smoke test. Patches `subprocess.run` with a recorder, exports `MAC_FRESH_SETUP_SAFE=1`, sets `runtime.dry_run = True`, then runs every module under every category. Reports recorded calls per module and fails if any module attempts a mutating action. Run it with `uv run --with questionary --with rich python scripts/smoke.py` — this is the new step-1 of the ship sequence.
+
+### Changed
+- **XCode CLI detection** — replaced `pkgutil --pkg-info=com.apple.pkg.CLTools_Executables` with `xcode-select -p` + check that `<dev>/usr/bin/clang` exists. The pkgutil package id varies across macOS versions (and was returning false-negative on macOS Tahoe), the clang-existence check is uniformly reliable for both CLT-only and full-Xcode installs. On failure, the module now prints a diagnostic block (rc, stdout, stderr, dev-dir existence, clang existence) before asking the user to re-run.
+- Migrated `sudoers`, `ssh_key`, `xcode_cli` to use `safe.mutating_run` / `safe.mutating_check` for state-changing calls.
 
 ### How to use
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from console import console
 from models import Module
 from runtime import runtime
+from safe import mutating_run
 
 
 def grant_root_access() -> None:
@@ -52,7 +53,7 @@ def grant_root_access() -> None:
             console.print(f"[red]visudo validation failed:[/red] {validation.stderr}")
             raise RuntimeError("invalid sudoers content")
 
-        subprocess.run(
+        mutating_run(
             [
                 "sudo",
                 "install",

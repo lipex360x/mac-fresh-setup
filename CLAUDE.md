@@ -62,6 +62,8 @@ Scope for v0.1 not yet decided — currently in planning conversation.
 
 - Each module must be idempotent (check before acting)
 - Each module must support `--dry-run`: after the idempotency check, if `runtime.dry_run` is true, print what would happen and `return` before any side effect
+- Every mutating subprocess call goes through `safe.mutating_run` (not `subprocess.run`); every non-subprocess mutation (mkdir, write_text, chmod-on-new-files) is preceded by `safe.mutating_check("description")`. This makes `MAC_FRESH_SETUP_SAFE=1` a hard safety net independent of dry-run.
+- Read-only subprocess calls (`sudo cat`, `xcode-select -p`, `pkgutil --pkg-info`, status queries) stay on plain `subprocess.run`.
 - Interactive steps (`gh auth login`, `ssh-keygen` passphrase) require explicit user pause
 - No shell `cd` between commands — use absolute paths (Bash tool resets cwd)
 - Brew install uses `NONINTERACTIVE=1` to avoid prompts
@@ -71,15 +73,11 @@ Scope for v0.1 not yet decided — currently in planning conversation.
 
 Default flow for any code change in this repo:
 
-1. **Test locally** — at minimum, smoke-test imports and the dry-run path of any module touched:
+1. **Test locally** — run the smoke test. It mocks `subprocess.run` and sets `MAC_FRESH_SETUP_SAFE=1` + `runtime.dry_run = True`, so it's guaranteed not to mutate the host:
    ```sh
-   uv run --with questionary --with rich python -c "
-   import sys; sys.path.insert(0, 'src')
-   from runtime import runtime; runtime.dry_run = True
-   from modules.<changed_module> import <run_fn>
-   <run_fn>()
-   "
+   uv run --with questionary --with rich python scripts/smoke.py
    ```
+   Expected tail line: `Smoke test OK — no module mutated the host.`
 2. **Update CHANGELOG.md** if behavior changed — add under `[Unreleased]` with `### Added/Changed/Why`. Bump to a new untagged `0.x.y` section once the change consolidates.
 3. **Update README.md** if invocation, flags, or user-visible features changed.
 4. **Commit** with conventional message (`feat:`, `fix:`, `refactor:`, `docs:`, etc.).
