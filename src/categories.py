@@ -1,15 +1,9 @@
 from __future__ import annotations
 
 from models import Category
-from modules import (
-    homebrew_casks,
-    homebrew_formulae,
-    homebrew_install,
-    iterm2_prefs,
-    ssh_key,
-    sudoers,
-    xcode_cli,
-)
+from modules.package_manager import homebrew_casks, homebrew_formulae, homebrew_install
+from modules.styling import iterm2_prefs
+from modules.system import ssh_key, sudoers, xcode_cli
 
 CATEGORIES: list[Category] = [
     Category(

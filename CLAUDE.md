@@ -28,13 +28,24 @@ Fetch with: `gh gist view 6b8e69af1b4a7a439dd1ca4baef735a7`
 mac-fresh-setup/
 ├── setup.py                    # PEP 723 bootstrap — downloads tarball, runs app
 ├── src/
-│   ├── app.py                  # main menu loop + preflight
+│   ├── app.py                  # main menu loop + preflight + argparse
 │   ├── console.py              # rich Console singleton
 │   ├── models.py               # Module / Category dataclasses
+│   ├── runtime.py              # Runtime dataclass (dry_run flag)
+│   ├── safe.py                 # mutating_run / mutating_check + SAFE mode
 │   ├── categories.py           # CATEGORIES registry
 │   └── modules/
-│       ├── sudoers.py          # step: grant root access
-│       └── ssh_key.py          # step: generate SSH key
+│       ├── system/
+│       │   ├── sudoers.py
+│       │   ├── xcode_cli.py
+│       │   └── ssh_key.py
+│       ├── package_manager/
+│       │   ├── homebrew_install.py
+│       │   ├── homebrew_formulae.py
+│       │   └── homebrew_casks.py
+│       └── styling/
+│           └── iterm2_prefs.py
+├── scripts/smoke.py            # mocked-subprocess smoke test (ship sequence step 1)
 ├── docs/fresh-install.md       # source-of-truth gist mirrored locally
 ├── CHANGELOG.md
 └── README.md
