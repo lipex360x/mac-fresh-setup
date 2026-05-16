@@ -6,8 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
+
+IS_WIN = sys.platform == "win32"
 
 ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "postgres"
 CONFIG = ROOT / "config.json"
@@ -23,21 +26,9 @@ def _load_config() -> dict:
     return json.loads(CONFIG.read_text())
 
 
-def _running() -> bool:
-    pid_file = DATA / "postmaster.pid"
-    if not pid_file.exists():
-        return False
-    try:
-        first_line = pid_file.read_text().splitlines()[0].strip()
-        pid = int(first_line)
-        os.kill(pid, 0)
-        return True
-    except (OSError, ValueError, IndexError):
-        return False
-
-
 def _bin(cfg: dict, name: str) -> Path:
-    return Path(cfg["install_dir"]) / "bin" / name
+    exe = f"{name}.exe" if IS_WIN else name
+    return Path(cfg["install_dir"]) / "bin" / exe
 
 
 def main() -> None:
@@ -45,8 +36,17 @@ def main() -> None:
         prog="postgres-cli",
         description=(
             "Open psql connected to the standalone PostgreSQL instance. "
-            "Extra arguments are forwarded to psql."
+            "Extra arguments are forwarded to psql (after a `--` separator "
+            "if they collide with the wrapper, e.g. `postgres-cli -- -h other_host`)."
         ),
+        add_help=False,
+    )
+    parser.add_argument(
+        "--help", action="help", help="show this help message and exit",
+    )
+    parser.add_argument(
+        "-p", "--port", type=int,
+        help="Override the port from config.json (handy for debug sessions).",
     )
     parser.add_argument(
         "extra", nargs=argparse.REMAINDER,
@@ -55,8 +55,7 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = _load_config()
-    if not _running():
-        sys.exit("PostgreSQL is not running. Start it with: postgres-up")
+    port = args.port or cfg["port"]
 
     env = os.environ.copy()
     if cfg.get("password"):
@@ -64,11 +63,14 @@ def main() -> None:
 
     cmd = [
         str(_bin(cfg, "psql")),
-        "-h", "localhost",
-        "-p", str(cfg["port"]),
+        "-h", "127.0.0.1",
+        "-p", str(port),
         "-U", "postgres",
     ]
     cmd.extend(args.extra)
+
+    if IS_WIN:
+        sys.exit(subprocess.run(cmd, env=env).returncode)
     os.execvpe(cmd[0], cmd, env)
 
 

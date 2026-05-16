@@ -6,11 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
+
+IS_WIN = sys.platform == "win32"
 
 ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "postgres"
 CONFIG = ROOT / "config.json"
@@ -30,11 +33,28 @@ def _load_config() -> dict:
 
 def _save_config(cfg: dict) -> None:
     CONFIG.write_text(json.dumps(cfg, indent=2))
-    CONFIG.chmod(0o600)
+    if not IS_WIN:
+        CONFIG.chmod(0o600)
 
 
 def _bin(cfg: dict, name: str) -> Path:
-    return Path(cfg["install_dir"]) / "bin" / name
+    exe = f"{name}.exe" if IS_WIN else name
+    return Path(cfg["install_dir"]) / "bin" / exe
+
+
+def _pid_alive(pid: int) -> bool:
+    if IS_WIN:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and str(pid) in result.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
 
 
 def _running() -> bool:
@@ -44,10 +64,18 @@ def _running() -> bool:
     try:
         first_line = pid_file.read_text().splitlines()[0].strip()
         pid = int(first_line)
-        os.kill(pid, 0)
-        return True
     except (OSError, ValueError, IndexError):
         return False
+    return _pid_alive(pid)
+
+
+def _port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", port))
+            return True
+        except OSError:
+            return False
 
 
 def _initialize_data(cfg: dict, password: str | None) -> int:
@@ -127,14 +155,32 @@ def main() -> None:
             _save_config(cfg)
         just_initialized = True
 
+    if not _port_free(cfg["port"]):
+        sys.exit(
+            f"Port {cfg['port']} is already in use. Another postgres (system "
+            f"service?) is bound. Either stop it, or pick a different port: "
+            f"`postgres-up -p {cfg['port'] + 1}` (the choice is saved to config)."
+        )
+
     RUNTIME.mkdir(parents=True, exist_ok=True)
-    rc = subprocess.run([
+    pg_ctl_cmd = [
         str(_bin(cfg, "pg_ctl")),
         "-D", str(DATA),
         "-l", str(LOG),
         "-o", f"-p {cfg['port']}",
         "start",
-    ]).returncode
+    ]
+    if IS_WIN:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0
+        rc = subprocess.run(
+            pg_ctl_cmd,
+            startupinfo=startupinfo,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        ).returncode
+    else:
+        rc = subprocess.run(pg_ctl_cmd).returncode
     if rc != 0:
         sys.exit(f"pg_ctl start failed (rc={rc}). Check log: {LOG}")
 
@@ -146,7 +192,7 @@ def main() -> None:
         sys.exit(f"PostgreSQL did not start within 20s. Check log: {LOG}")
 
     print(f"PostgreSQL started on port {cfg['port']}.")
-    print(f"Connect: postgres-cli")
+    print("Connect: postgres-cli")
 
     if args.password is not None and not just_initialized:
         if _alter_password(cfg, args.password):

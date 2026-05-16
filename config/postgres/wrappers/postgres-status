@@ -6,8 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
+import subprocess
 import sys
 from pathlib import Path
+
+IS_WIN = sys.platform == "win32"
 
 ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "postgres"
 CONFIG = ROOT / "config.json"
@@ -22,6 +26,21 @@ def _load_config() -> dict | None:
     return json.loads(CONFIG.read_text())
 
 
+def _pid_alive(pid: int) -> bool:
+    if IS_WIN:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and str(pid) in result.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
 def _running() -> tuple[bool, str]:
     pid_file = DATA / "postmaster.pid"
     if not pid_file.exists():
@@ -29,10 +48,20 @@ def _running() -> tuple[bool, str]:
     try:
         first_line = pid_file.read_text().splitlines()[0].strip()
         pid = int(first_line)
-        os.kill(pid, 0)
-        return True, str(pid)
     except (OSError, ValueError, IndexError):
         return False, ""
+    if _pid_alive(pid):
+        return True, str(pid)
+    return False, ""
+
+
+def _port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", port))
+            return True
+        except OSError:
+            return False
 
 
 def main() -> None:
@@ -45,18 +74,22 @@ def main() -> None:
     if cfg is None:
         sys.exit("PostgreSQL is not installed.")
 
+    port = cfg["port"]
+    running, pid = _running()
+
     print(f"Version:     {cfg['version']}")
     print(f"Install dir: {cfg['install_dir']}")
     print(f"Data dir:    {DATA}")
-    print(f"Port:        {cfg['port']}")
     print(f"Password:    {'(set)' if cfg.get('password') else '(empty / trust auth)'}")
 
-    running, pid = _running()
     if running:
         print(f"State:       running (PID {pid})")
+        print(f"Listening:   127.0.0.1:{port}")
         print(f"Log:         {LOG}")
     else:
+        suffix = "(free)" if _port_free(port) else "(in use by another process)"
         print("State:       stopped")
+        print(f"Port:        {port}  {suffix}")
 
 
 if __name__ == "__main__":
