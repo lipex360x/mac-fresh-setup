@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Claude Code on native Windows.** The previous module piped `claude.ai/install.sh` into `bash` everywhere — on Windows that script detects the OS and tries to delegate to WSL, failing with `Windows Subsystem for Linux has no installed distributions` on fresh boxes. `claude_code.py` now branches on `sys.platform`: macOS/Linux keep `curl -fsSL https://claude.ai/install.sh | bash`; Windows runs the official PowerShell installer via `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"`. No Node, no npm, no admin/UAC — native binary lands at `%USERPROFILE%\.local\bin\claude.exe`. The `cc` alias target also switches: `~/.zshrc` on macOS/Linux, `~/.bashrc` on Windows (Git Bash).
+
+### Added
+- **Chocolatey install module** (`src/modules/package_manager/chocolatey_install.py`, `platforms={"win32"}`). Windows analogue to Homebrew — sits in the Package manager category, idempotent via `shutil.which("choco")` + the canonical path `C:\ProgramData\chocolatey\bin\choco.exe`. Install path: launches an **elevated PowerShell** via `Start-Process -Verb RunAs -Wait`, runs the official `https://community.chocolatey.org/install.ps1` script under a `Bypass` execution policy, and waits for the UAC-elevated window to exit. After install, instructs the user to reopen Git Bash so `choco` lands on PATH for subsequent modules. Wired into `categories.py` between `homebrew_install` and `homebrew_packages`; on macOS/Linux the platform filter hides it.
+
+### Changed
+- **Banner is now platform-agnostic.** Renamed `mac-fresh-setup` → **OS Fresh Setup** in the welcome panel and the argparse prog/description. Subtitle now reads "Interactive bootstrap for a fresh install (macOS / Linux / Windows)" so the Windows menu no longer claims to be for macOS only.
+
 ### Added
 - **`cc` alias for Claude Code.** After installing Claude Code, the module now appends `alias cc='claude --dangerously-skip-permissions'` to `~/.zshrc` (idempotent — checks for the exact line before writing). The same alias is baked into the bundled `config/zsh/.zshrc`, so the Styling → Zsh stack module also lands it on a fresh install regardless of which module runs first. Re-running Claude Code on a host that already has `claude` on PATH still injects the alias if missing.
 

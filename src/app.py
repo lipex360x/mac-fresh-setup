@@ -18,8 +18,8 @@ from style import QUESTIONARY_STYLE
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="mac-fresh-setup",
-        description="Interactive bootstrap for a fresh macOS install.",
+        prog="os-fresh-setup",
+        description="Interactive bootstrap for a fresh OS install (macOS / Linux / Windows).",
     )
     parser.add_argument(
         "--dry-run",
@@ -90,8 +90,8 @@ def run(argv: list[str] | None = None) -> None:
     runtime.dry_run = args.dry_run
     _preflight()
     banner = (
-        "[bold cyan]mac-fresh-setup[/bold cyan]\n"
-        "Interactive bootstrap for a fresh macOS install."
+        "[bold cyan]OS Fresh Setup[/bold cyan]\n"
+        "Interactive bootstrap for a fresh install (macOS / Linux / Windows)."
     )
     if runtime.dry_run:
         banner += "\n[bold yellow]DRY RUN — no changes will be made.[/bold yellow]"
