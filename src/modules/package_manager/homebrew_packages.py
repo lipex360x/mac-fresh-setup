@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
 import questionary
@@ -10,7 +11,7 @@ import questionary
 from console import console
 from models import Module
 from runtime import runtime
-from safe import mutating_run
+from safe import mutating_check, mutating_run
 
 Kind = Literal["formula", "cask"]
 
@@ -20,6 +21,7 @@ class Package:
     name: str
     kind: Kind
     description: str
+    cleanup_paths: tuple[str, ...] = field(default_factory=tuple)
 
 
 PACKAGES: list[Package] = [
@@ -30,7 +32,17 @@ PACKAGES: list[Package] = [
     Package("font-fira-code", "cask", "Fira Code monospace font with programming ligatures"),
     Package("docker-desktop", "cask", "Docker Desktop for Mac — containers + compose"),
     Package("iterm2", "cask", "Drop-in replacement for Terminal.app with panes, profiles, ligatures"),
-    Package("visual-studio-code", "cask", "Microsoft Visual Studio Code — required for the Editor category"),
+    Package(
+        "visual-studio-code",
+        "cask",
+        "Microsoft Visual Studio Code — required for the Editor category",
+        cleanup_paths=(
+            "Library/Application Support/Code",
+            "Library/Application Support/Code - Insiders",
+            ".vscode",
+            ".vscode-insiders",
+        ),
+    ),
     Package("intellij-idea-ce", "cask", "IntelliJ IDEA Community Edition — JVM IDE"),
     Package("bruno", "cask", "API client — Git-friendly alternative to Postman"),
     Package("mockoon", "cask", "API mocking — design and run mock servers locally"),
@@ -91,7 +103,27 @@ def _uninstall(pkg: Package) -> int:
     cmd.append(pkg.name)
     console.rule(f"[bold]{' '.join(cmd)}[/bold]")
     result = mutating_run(cmd)
+    if result.returncode == 0 and pkg.cleanup_paths:
+        _cleanup_extra_paths(pkg)
     return result.returncode
+
+
+def _cleanup_extra_paths(pkg: Package) -> None:
+    home = Path.home()
+    targets = [home / rel for rel in pkg.cleanup_paths]
+    existing = [t for t in targets if t.exists()]
+    if not existing:
+        return
+    console.print(
+        f"[dim]Cleaning up {len(existing)} leftover path(s) for {pkg.name}...[/dim]"
+    )
+    for target in existing:
+        mutating_check(f"rm -rf {target}")
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+        else:
+            target.unlink(missing_ok=True)
+        console.print(f"  [dim]removed {target}[/dim]")
 
 
 def _pick_action() -> str | None:

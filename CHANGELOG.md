@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
 
+### Added (Uninstall cleanup paths)
+- `Package` dataclass now accepts an optional `cleanup_paths` tuple — paths under `$HOME` to `rm -rf` after a successful `brew uninstall`. `visual-studio-code` ships with: `Library/Application Support/Code`, `Library/Application Support/Code - Insiders`, `.vscode`, `.vscode-insiders`. The uninstall flow first runs `brew uninstall --cask <name>`, then iterates the cleanup paths (only the ones that exist on disk) through `safe.mutating_check` + `shutil.rmtree`. CLAUDE.md table updated to document the new field.
+
 ### Added (Install / Uninstall)
 - `Homebrew packages` and `Mise runtimes` now prompt **Install / Uninstall / Back** before showing the checkbox. Each picker only lists items that are actionable: install mode shows only **not-installed** items, uninstall mode shows only **installed** items. Empty lists short-circuit with a friendly "nothing to do" message. Selected items run `brew install` / `brew uninstall` (with `--cask` when needed) or `mise use -g <spec>` / `mise uninstall <spec>`. Same module, two intents — no duplicate menu entry.
 

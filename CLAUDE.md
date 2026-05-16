@@ -64,7 +64,7 @@ The repo has four "pick what you want" pickers, all backed by a list of small fr
 
 | File | Class | Required fields | Install dispatch |
 |---|---|---|---|
-| `src/modules/package_manager/homebrew_packages.py` | `Package` | `name`, `kind` (`"formula"` or `"cask"`), `description` | `brew install <name>` or `brew install --cask <name>` based on `kind` |
+| `src/modules/package_manager/homebrew_packages.py` | `Package` | `name`, `kind` (`"formula"` or `"cask"`), `description`, optional `cleanup_paths` (tuple of paths under `$HOME` to `rm -rf` after uninstall) | `brew install <name>` or `brew install --cask <name>` based on `kind`; on uninstall, also removes the cleanup_paths |
 | `src/modules/package_manager/mise_runtimes.py` | `Runtime` | `title`, `spec` (e.g. `"node@lts"`), `description` | `mise use -g <spec>` |
 | `config/vscode/extensions.txt` | (plain text) | one extension ID per line, `#` for comments | `code --install-extension <id>` (run by `vscode_stack`) |
 
