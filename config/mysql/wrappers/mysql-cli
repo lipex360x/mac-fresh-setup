@@ -15,7 +15,6 @@ IS_WIN = sys.platform == "win32"
 ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
 CONFIG = ROOT / "config.json"
 RUNTIME = ROOT / "runtime"
-PID = RUNTIME / "mysql.pid"
 SOCK = RUNTIME / "mysql.sock"
 
 
@@ -25,31 +24,6 @@ def _load_config() -> dict:
             "MySQL is not installed. Run mac-fresh-setup → Databases → MySQL → Install."
         )
     return json.loads(CONFIG.read_text())
-
-
-def _pid_alive(pid: int) -> bool:
-    if IS_WIN:
-        result = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
-            capture_output=True,
-            text=True,
-        )
-        return result.returncode == 0 and str(pid) in result.stdout
-    try:
-        os.kill(pid, 0)
-        return True
-    except (ProcessLookupError, PermissionError):
-        return False
-
-
-def _running() -> bool:
-    if not PID.exists():
-        return False
-    try:
-        pid = int(PID.read_text().strip())
-    except ValueError:
-        return False
-    return _pid_alive(pid)
 
 
 def _bin(cfg: dict, name: str) -> Path:
@@ -62,8 +36,14 @@ def main() -> None:
         prog="mysql-cli",
         description=(
             "Open the standalone MySQL client. Connects via socket on Unix, "
-            "TCP on Windows. Extra arguments are forwarded to the mysql binary."
+            "TCP on Windows. Extra arguments are forwarded to the mysql binary "
+            "(after a `--` separator if they collide with the wrapper, e.g. "
+            "`mysql-cli -- -h other_host`)."
         ),
+        add_help=False,
+    )
+    parser.add_argument(
+        "--help", action="help", help="show this help message and exit",
     )
     parser.add_argument(
         "extra", nargs=argparse.REMAINDER,
@@ -72,8 +52,6 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = _load_config()
-    if not _running():
-        sys.exit("MySQL is not running. Start it with: mysql-up")
 
     cmd = [str(_bin(cfg, "mysql")), "-uroot"]
     if IS_WIN:
