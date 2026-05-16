@@ -81,11 +81,13 @@ The env var controls only the tarball ref; the `setup.py` URL itself can stay on
 
 **Package manager**
 - **Homebrew** — runs the official install script with `NONINTERACTIVE=1`, then appends `brew shellenv` to `~/.zprofile`.
+- **Homebrew formulae** — checkbox menu of CLI tools (`mise`, `gh`); installs the selected ones via `brew install`.
+- **Homebrew casks** — checkbox menu of GUI apps (`iterm2`); installs the selected ones via `brew install --cask`.
 
 All modules are idempotent — re-running is safe.
 
 ## Roadmap
 
-Not implemented yet: Homebrew formulae/casks, Oh-my-zsh + Spaceship, asdf languages, VSCode extensions, git config + `gh auth`.
+Not implemented yet: Languages via mise (node/python/java/bun), Oh-my-zsh + Spaceship, VSCode extensions, git config + `gh auth`.
 
 See `CHANGELOG.md` for the full history. Source reference: `docs/fresh-install.md`.

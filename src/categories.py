@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 from models import Category
-from modules import homebrew_install, ssh_key, sudoers, xcode_cli
+from modules import (
+    homebrew_casks,
+    homebrew_formulae,
+    homebrew_install,
+    ssh_key,
+    sudoers,
+    xcode_cli,
+)
 
 CATEGORIES: list[Category] = [
     Category(
@@ -12,6 +19,10 @@ CATEGORIES: list[Category] = [
     Category(
         key="package_manager",
         title="Package manager",
-        modules=(homebrew_install.module,),
+        modules=(
+            homebrew_install.module,
+            homebrew_formulae.module,
+            homebrew_casks.module,
+        ),
     ),
 ]
