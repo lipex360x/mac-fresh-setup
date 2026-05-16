@@ -83,7 +83,7 @@ def _picker(action: str) -> list[str]:
     for rt in visible:
         choices.append(
             questionary.Choice(
-                title=f"{rt.title}  [dim]({rt.spec})[/dim]",
+                title=f"{rt.title}  ({rt.spec})",
                 value=rt.spec,
                 description=rt.description,
             )

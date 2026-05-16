@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Mise picker** — `rt.spec` was wrapped in literal `[dim]...[/dim]` rich markup tags, which questionary renders as plain text (it doesn't parse rich markup). The spec is now shown as plain `(node@lts)` without leaking tags.
+
 ## [0.2.0] — 2026-05-16
 
 Major release. New categories (Package manager, Styling, Databases), full standalone-binary DB stack, install/uninstall flow, hard safety net, cyan UI face-lift.
