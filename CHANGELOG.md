@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- **Claude Code `cc` alias not visible in new Git Bash windows.** Git Bash opens as a **login shell**, which reads `~/.bash_profile` (or `~/.profile`) and only loads `~/.bashrc` if that file does an explicit `source ~/.bashrc`. The alias was being written to `~/.bashrc` correctly, but it never made it into new windows. `claude_code.py` now also wires `~/.bash_profile` with `[ -f ~/.bashrc ] && source ~/.bashrc` (idempotent — checks for the exact line before writing). The bridge step runs in **every** path of the module (already-installed, dry-run, fresh install), so re-running the module on a Windows box where Claude Code is already present is enough to apply the fix.
+- **Claude Code `cc` alias and the `claude` binary both invisible in new Git Bash windows.** Two compounded login-shell quirks on Windows: (1) Git Bash opens as a **login shell**, so it reads `~/.bash_profile` (or `~/.profile`) and only loads `~/.bashrc` when that file does an explicit `source ~/.bashrc`; the `cc` alias never made it across. (2) The Claude Code (and uv) installers drop a `~/.local/bin/env` script that prepends `~/.local/bin` to `PATH`, but Git Bash does not source it automatically — so `claude.exe` and `uv.exe` exist on disk yet `claude: command not found`. `claude_code.py` now wires **both** lines into `~/.bash_profile` (idempotent — checks each line separately, only appends what's missing):
+
+  ```
+  [ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
+  [ -f ~/.bashrc ] && source ~/.bashrc
+  ```
+
+  The bridge step runs in **every** path of the module (already-installed, dry-run, fresh install), so re-running the module on a Windows box where Claude Code is already present is enough to apply the fix.
 
 ### Fixed
 - **Claude Code on native Windows.** The previous module piped `claude.ai/install.sh` into `bash` everywhere — on Windows that script detects the OS and tries to delegate to WSL, failing with `Windows Subsystem for Linux has no installed distributions` on fresh boxes. `claude_code.py` now branches on `sys.platform`: macOS/Linux keep `curl -fsSL https://claude.ai/install.sh | bash`; Windows runs the official PowerShell installer via `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"`. No Node, no npm, no admin/UAC — native binary lands at `%USERPROFILE%\.local\bin\claude.exe`. The `cc` alias target also switches: `~/.zshrc` on macOS/Linux, `~/.bashrc` on Windows (Git Bash).

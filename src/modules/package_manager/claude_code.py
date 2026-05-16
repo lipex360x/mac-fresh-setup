@@ -14,10 +14,13 @@ _INSTALL_URL_POSIX = "https://claude.ai/install.sh"
 _INSTALL_URL_WINDOWS = "https://claude.ai/install.ps1"
 _ALIAS_LINE = "alias cc='claude --dangerously-skip-permissions'"
 _ALIAS_BLOCK = f"\n### CLAUDE CODE\n{_ALIAS_LINE}\n"
-_BASH_PROFILE_SOURCE_LINE = "[ -f ~/.bashrc ] && source ~/.bashrc"
+_BASH_PROFILE_ENV_LINE = '[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"'
+_BASH_PROFILE_RC_LINE = "[ -f ~/.bashrc ] && source ~/.bashrc"
 _BASH_PROFILE_BLOCK = (
-    "\n### load ~/.bashrc on login shells (Git Bash)\n"
-    f"{_BASH_PROFILE_SOURCE_LINE}\n"
+    "\n### load ~/.local/bin/env (PATH for claude, uv, etc.) "
+    "and ~/.bashrc on login shells (Git Bash)\n"
+    f"{_BASH_PROFILE_ENV_LINE}\n"
+    f"{_BASH_PROFILE_RC_LINE}\n"
 )
 
 
@@ -65,27 +68,40 @@ def _ensure_login_shell_bridge() -> None:
     if sys.platform != "win32":
         return
     bp = Path.home() / ".bash_profile"
-    if bp.exists() and _BASH_PROFILE_SOURCE_LINE in bp.read_text():
+    existing = bp.read_text() if bp.exists() else ""
+    needs_env = _BASH_PROFILE_ENV_LINE not in existing
+    needs_rc = _BASH_PROFILE_RC_LINE not in existing
+    if not needs_env and not needs_rc:
         console.print(
-            f"[yellow]{bp} already sources ~/.bashrc — skipping.[/yellow]"
+            f"[yellow]{bp} already wires ~/.local/bin/env and ~/.bashrc — "
+            "skipping.[/yellow]"
         )
         return
+
+    missing: list[str] = []
+    if needs_env:
+        missing.append(_BASH_PROFILE_ENV_LINE)
+    if needs_rc:
+        missing.append(_BASH_PROFILE_RC_LINE)
+
     if runtime.dry_run:
         console.print(
-            f"[cyan]DRY RUN[/cyan] would append "
-            f"[dim]{_BASH_PROFILE_SOURCE_LINE}[/dim] to [dim]{bp}[/dim]."
+            f"[cyan]DRY RUN[/cyan] would append the following to [dim]{bp}[/dim]:"
         )
+        for line in missing:
+            console.print(f"  [dim]{line}[/dim]")
         return
-    mutating_check(f"bridge {bp} → ~/.bashrc")
-    existing = bp.read_text() if bp.exists() else ""
+
+    mutating_check(f"bridge {bp} → ~/.local/bin/env + ~/.bashrc")
     if existing and not existing.endswith("\n"):
         existing += "\n"
-    bp.write_text(existing + _BASH_PROFILE_BLOCK)
+    bp.write_text(existing + "\n" + "\n".join(missing) + "\n")
     console.print(
-        f"[green]Wired {bp} to source ~/.bashrc on login.[/green] Git Bash "
-        "opens as a login shell, so this is required for the `cc` alias to "
-        "appear in new windows. Run [dim]exec bash -l[/dim] (or open a new "
-        "Git Bash window) to reload."
+        f"[green]Wired {bp} to load ~/.local/bin/env (PATH) and ~/.bashrc "
+        "(aliases) on login.[/green] Git Bash opens as a login shell, so "
+        "this is required for [dim]claude[/dim] and the [dim]cc[/dim] alias "
+        "to appear in new windows. Run [dim]exec bash -l[/dim] (or open a "
+        "new Git Bash window) to reload."
     )
 
 
