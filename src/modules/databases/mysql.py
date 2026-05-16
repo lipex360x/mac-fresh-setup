@@ -219,6 +219,28 @@ def _do_uninstall_wipe() -> None:
     )
 
 
+def _do_start() -> None:
+    wrapper = _BIN_DIR / "mysql-up"
+    if not wrapper.exists():
+        console.print(
+            f"[red]Wrapper not found at {wrapper}.[/red] Run Install first."
+        )
+        return
+    console.rule(f"[bold]{wrapper}[/bold]")
+    mutating_run([str(wrapper)])
+
+
+def _do_stop() -> None:
+    wrapper = _BIN_DIR / "mysql-down"
+    if not wrapper.exists():
+        console.print(
+            f"[red]Wrapper not found at {wrapper}.[/red] Run Install first."
+        )
+        return
+    console.rule(f"[bold]{wrapper}[/bold]")
+    mutating_run([str(wrapper)])
+
+
 def _do_status() -> None:
     state = _state()
     cfg = _load_config()
@@ -269,6 +291,14 @@ def manage_mysql() -> None:
         choices.append(
             questionary.Choice(title=f"Status (current: {state})", value="status")
         )
+        if state == "stopped":
+            choices.append(
+                questionary.Choice(
+                    title="Start (default port + saved password)", value="start"
+                )
+            )
+        if state == "running":
+            choices.append(questionary.Choice(title="Stop", value="stop"))
         choices.append(
             questionary.Choice(
                 title="Uninstall (keep data)", value="uninstall-keep"
@@ -293,6 +323,8 @@ def manage_mysql() -> None:
     dispatch = {
         "install": _do_install,
         "status": _do_status,
+        "start": _do_start,
+        "stop": _do_stop,
         "uninstall-keep": _do_uninstall_keep_data,
         "uninstall-wipe": _do_uninstall_wipe,
     }

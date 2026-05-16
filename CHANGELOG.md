@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New category **Databases** with the first module: **MySQL (standalone tarball)** (`src/modules/databases/mysql.py`).
 - Install path: downloads the official tarball from `dev.mysql.com/get/Downloads/MySQL-8.4/mysql-8.4.3-<platform>.tar.gz` (default version `8.4.3`, current LTS), extracts into `~/.local/share/mac-fresh-setup/mysql/installs/8.4.3/`. No brew, no Mise, no sudo, no Docker — fully user-level.
 - Persistent config at `~/.local/share/mac-fresh-setup/mysql/config.json` (mode `0600`): `{ "version", "install_dir", "port", "password" }`.
-- Action picker: Install / Status / Uninstall (keep data) / Uninstall (wipe everything) / ← Back.
+- Action picker: Install / Status / **Start** (when stopped) / **Stop** (when running) / Uninstall (keep data) / Uninstall (wipe everything) / ← Back. Start/Stop delegate to the wrappers with no flags — happy path for "default port + saved password". For port overrides or password rotation, run the wrappers directly from the terminal (`mysql-up -p 3307 --pass abc`).
 - Daemon control is delegated to **wrappers** copied to `~/.local/bin/`:
   - `mysql-up [-p PORT] [--pass PASS] [-h]` — initializes data dir on first run, starts `mysqld_safe`, optionally sets/changes the root password (saved to config), updates port (saved to config).
   - `mysql-down [-h]` — graceful shutdown via `mysqladmin shutdown` (uses saved password if any), SIGTERM fallback.
