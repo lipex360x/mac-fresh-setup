@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
 
+### Changed (UI face-lift — cyan questionary theme)
+- New `src/style.py` exposing `QUESTIONARY_STYLE` with a cyan (`#00d7ff`) accent palette for `qmark`, `pointer`, `highlighted`, `selected`, `answer`; greys for `instruction` and `disabled`. Pattern adopted from the sibling `cct-netbeans-setup` project.
+- Plumbed `style=QUESTIONARY_STYLE` through every interactive call in the codebase (14 sites across `app.py`, the system/package_manager/databases modules). Menus, prompts, confirmations and the press-any-key gate now render consistently cyan instead of questionary's default bright-green/blue.
+
 ### Fixed (PostgreSQL — symlinks)
 - Even with Rosetta installed, the very first `initdb` still failed: `dyld: Library not loaded: ... libicudata.68.dylib (slice is not valid mach-o file)`. Root cause: Python's `zipfile.extractall` materialises **symlinks as text files** containing the target path, instead of recreating them as actual symlinks. EDB packages `libicudata.dylib → libicudata.68.dylib` (and several similar) — the broken "symlink" gets loaded as a malformed dylib.
 - Fix: `_extract_zip_preserving_perms` now checks `stat.S_ISLNK(info.external_attr >> 16)` on each entry. Symlink entries are recreated via `Path.symlink_to(link_target)` instead of being written to disk as text.

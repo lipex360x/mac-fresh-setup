@@ -18,6 +18,7 @@ from console import console
 from models import Module
 from runtime import runtime
 from safe import mutating_check, mutating_run
+from style import QUESTIONARY_STYLE
 
 _PG_VERSION = "17.10"
 _PG_REV = "1"
@@ -277,6 +278,7 @@ def _do_uninstall_wipe() -> None:
         f"This will PERMANENTLY delete {_ROOT} (binaries, data, config) "
         f"and the four wrappers in {_BIN_DIR}. Continue?",
         default=False,
+        style=QUESTIONARY_STYLE,
     ).ask()
     if not confirmed:
         console.print("[yellow]Aborted — nothing removed.[/yellow]")
@@ -394,6 +396,7 @@ def manage_postgres() -> None:
     action = questionary.select(
         f"PostgreSQL — current state: [{state}]",
         choices=choices,
+        style=QUESTIONARY_STYLE,
     ).ask()
 
     if action in (None, "__back"):

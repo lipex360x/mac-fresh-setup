@@ -11,6 +11,7 @@ from categories import CATEGORIES
 from console import console
 from models import Category, Module
 from runtime import runtime
+from style import QUESTIONARY_STYLE
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -43,7 +44,10 @@ def _run_module(module: Module) -> None:
     except Exception as exc:
         console.print(f"[red]Module {module.key} failed: {exc}[/red]")
     console.print()
-    questionary.press_any_key_to_continue("Press any key to return to the menu...").ask()
+    questionary.press_any_key_to_continue(
+        "Press any key to return to the menu...",
+        style=QUESTIONARY_STYLE,
+    ).ask()
 
 
 def _category_menu(category: Category) -> None:
@@ -53,6 +57,7 @@ def _category_menu(category: Category) -> None:
         answer = questionary.select(
             f"{category.title} — pick a module:",
             choices=choices,
+            style=QUESTIONARY_STYLE,
         ).ask()
         if answer in (None, "__back"):
             return
@@ -78,6 +83,7 @@ def run(argv: list[str] | None = None) -> None:
         answer = questionary.select(
             "Pick a category:",
             choices=choices,
+            style=QUESTIONARY_STYLE,
         ).ask()
         if answer in (None, "__exit"):
             console.rule("[bold green]Bye[/bold green]")

@@ -10,6 +10,7 @@ from console import console
 from models import Module
 from runtime import runtime
 from safe import mutating_run
+from style import QUESTIONARY_STYLE
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,7 @@ def _pick_action() -> str | None:
             questionary.Choice(title="Uninstall", value="uninstall"),
             questionary.Choice(title="← Back", value="__back"),
         ],
+        style=QUESTIONARY_STYLE,
     ).ask()
     if answer in (None, "__back"):
         return None
@@ -90,6 +92,7 @@ def _picker(action: str) -> list[str]:
         f"Pick runtimes to {verb} (space to toggle, enter to confirm — "
         "pick '← Back' alone to return):",
         choices=choices,
+        style=QUESTIONARY_STYLE,
     ).ask()
     if not selected or "__back" in selected:
         return []
@@ -135,7 +138,9 @@ def install_mise_runtimes() -> None:
                 f"[red]{' '.join(cmd)} failed (rc={result.returncode}).[/red]"
             )
             if not questionary.confirm(
-                f"Continue with the remaining {action}s?", default=True
+                f"Continue with the remaining {action}s?",
+                default=True,
+                style=QUESTIONARY_STYLE,
             ).ask():
                 return
 

@@ -11,6 +11,7 @@ from console import console
 from models import Module
 from runtime import runtime
 from safe import mutating_check, mutating_run
+from style import QUESTIONARY_STYLE
 
 
 def generate_ssh_key() -> None:
@@ -35,6 +36,7 @@ def generate_ssh_key() -> None:
         email = questionary.text(
             "Email for the SSH key comment (used to identify the key on GitHub):",
             default=os.environ.get("GIT_EMAIL", ""),
+            style=QUESTIONARY_STYLE,
         ).ask()
         if email is None:
             console.print("[red]Aborted.[/red]")
