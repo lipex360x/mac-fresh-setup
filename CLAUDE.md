@@ -35,16 +35,13 @@ mac-fresh-setup/
 │   ├── safe.py                 # mutating_run / mutating_check + SAFE mode
 │   ├── categories.py           # CATEGORIES registry
 │   └── modules/
-│       ├── system/
-│       │   ├── sudoers.py
-│       │   ├── xcode_cli.py
-│       │   └── ssh_key.py
-│       ├── package_manager/
-│       │   ├── homebrew_install.py
-│       │   ├── homebrew_formulae.py
-│       │   └── homebrew_casks.py
-│       └── styling/
-│           └── iterm2_prefs.py
+│       ├── system/             # sudoers, xcode_cli, ssh_key
+│       ├── package_manager/    # homebrew_install, homebrew_packages, mise_runtimes
+│       ├── styling/            # iterm2_prefs, oh_my_zsh, spaceship, zshrc, zsh_stack
+│       └── editor/             # vscode_extensions, vscode_settings, _code_cli
+├── config/
+│   ├── iterm2/com.googlecode.iterm2.plist   # bundled iTerm2 prefs (XML form)
+│   └── zsh/.zshrc                            # bundled zsh styling config
 ├── scripts/smoke.py            # mocked-subprocess smoke test (ship sequence step 1)
 ├── docs/fresh-install.md       # source-of-truth gist mirrored locally
 ├── CHANGELOG.md
@@ -59,15 +56,31 @@ The bootstrap inserts `src/` at `sys.path[0]`, so modules import each other dire
 
 Published at https://github.com/lipex360x/mac-fresh-setup (public). Tag `v0.1.0` is the only release; `[Unreleased]` and intermediate untagged versions (0.1.x) track ongoing progress in CHANGELOG.
 
-## Candidate modules (from gist)
+## Curated lists — how to add an item
 
-System: sudoers NOPASSWD, XCode CLI, SSH key, git config, gh auth
-Homebrew: install, formulae (asdf, gh, bun), casks (iterm2, vscode, intellij, docker, brave, bruno, beekeeper, fonts, aldente, betterdisplay, raycast)
-Shell: oh-my-zsh, spaceship theme, zinit + plugins, custom .zshrc
-Languages (via asdf): Java + Maven, Node LTS, Python
-VSCode: extensions + user settings.json
+The repo has four "pick what you want" pickers, all backed by a list of small frozen dataclasses. Adding a new option is one line in the list — no other code needs to change.
 
-Scope for v0.1 not yet decided — currently in planning conversation.
+| File | Class | Required fields | Install dispatch |
+|---|---|---|---|
+| `src/modules/package_manager/homebrew_packages.py` | `Package` | `name`, `kind` (`"formula"` or `"cask"`), `description` | `brew install <name>` or `brew install --cask <name>` based on `kind` |
+| `src/modules/package_manager/mise_runtimes.py` | `Runtime` | `title`, `spec` (e.g. `"node@lts"`), `description` | `mise use -g <spec>` |
+| `src/modules/editor/vscode_extensions.py` | `Extension` | `extension_id` (e.g. `"esbenp.prettier-vscode"`), `description` | `code --install-extension <id>` |
+
+Each picker queries the existing-state once before the prompt and greys out already-installed items via `questionary.Choice(..., disabled="installed")`. Order in the list = order in the menu.
+
+Example — adding a new cask:
+
+```python
+Package("postman", "cask", "Postman API client (proprietary alternative to Bruno"),
+```
+
+Example — adding a new mise runtime:
+
+```python
+Runtime("Go latest", "go@latest", "Go toolchain — rolling release"),
+```
+
+That's it. No category change, no registration step, no test scaffolding required (the smoke runner picks it up automatically).
 
 ## Conventions
 

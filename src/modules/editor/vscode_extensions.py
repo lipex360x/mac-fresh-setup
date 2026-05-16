@@ -23,6 +23,14 @@ EXTENSIONS: list[Extension] = [
     Extension("dbaeumer.vscode-eslint", "ESLint integration for JavaScript/TypeScript"),
     Extension("esbenp.prettier-vscode", "Prettier — code formatter"),
     Extension("eamodio.gitlens", "GitLens — supercharge Git inside VSCode"),
+    Extension("github.copilot", "GitHub Copilot — AI pair programmer"),
+    Extension("github.copilot-chat", "GitHub Copilot Chat — in-editor AI conversations"),
+    Extension("ms-azuretools.vscode-docker", "Docker — manage containers, images and compose"),
+    Extension("ms-python.python", "Python — language support, debugger, REPL"),
+    Extension("redhat.java", "Java — language support by Red Hat"),
+    Extension("oven.bun-vscode", "Bun — language and debugger support"),
+    Extension("editorconfig.editorconfig", "EditorConfig — respects .editorconfig files"),
+    Extension("usernamehw.errorlens", "Error Lens — inline diagnostics next to code"),
 ]
 
 

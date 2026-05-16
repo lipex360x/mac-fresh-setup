@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
+
+### Added (mise runtimes)
+- Module **Mise runtimes** (`src/modules/package_manager/mise_runtimes.py`) under Package manager. Checkbox over a `Runtime(title, spec, description)` list: Node.js LTS (`node@lts`), Bun latest (`bun@latest`), Java LTS (`java@temurin-21`), PHP 8.3 (`php@8.3`). Idempotency via `mise current <tool>`; already-set runtimes are greyed out. Each selected entry runs `mise use -g <spec>` with live output.
+
+### Added (VSCode extensions list expansion)
+- Extended the curated VSCode extensions list with: `github.copilot`, `github.copilot-chat`, `ms-azuretools.vscode-docker`, `ms-python.python`, `redhat.java`, `oven.bun-vscode`, `editorconfig.editorconfig`, `usernamehw.errorlens`.
+
+### Documentation
+- `CLAUDE.md`: structure section refreshed to match the current layout (categories include `editor/` and the `config/` bundle dir). Added a "Curated lists — how to add an item" section documenting the same pattern across the three picker modules (`homebrew_packages`, `mise_runtimes`, `vscode_extensions`).
 - New category **Styling** with module **iTerm2 preferences** (`src/modules/styling/iterm2_prefs.py`). Fetches the plist from `config/iterm2/com.googlecode.iterm2.plist` checked into this repo (override with `ITERM2_PREFS_URL` env var); backs up any existing `~/Library/Preferences/com.googlecode.iterm2.plist`, writes the new file, runs `killall cfprefsd` to invalidate macOS's preference cache. On any write failure, falls back to `~/Downloads/com.googlecode.iterm2.plist` and prints manual import instructions (cp + killall cfprefsd, or iTerm2's "Load settings from custom folder or URL"). The questionary prompt was removed — the prefs file changes rarely; users override via the env var when needed.
 - Added `config/iterm2/com.googlecode.iterm2.plist` — XML-form plist exported from the maintainer's Mac (`plutil -convert xml1`). Versioned with the project so the Styling module is self-contained.
 
