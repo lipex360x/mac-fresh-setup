@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import platform
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -166,16 +167,30 @@ def _download_and_extract() -> None:
 
 
 def _extract_zip_preserving_perms(archive: Path, target: Path) -> None:
-    """Extract a ZIP preserving Unix mode bits.
+    """Extract a ZIP preserving Unix mode bits AND symlinks.
 
-    Python's zipfile.extractall drops the executable bit, which leaves
-    EDB's bin/ binaries non-runnable. We replay the mode from the
-    ZIP entry's external_attr (upper 16 bits) after each extract.
+    Python's zipfile.extractall drops two things that EDB needs:
+    1. The executable bit — `bin/initdb` ends up at 0644 and dyld can't run it.
+    2. Symlinks — `lib/libicudata.dylib -> libicudata.68.dylib` is materialised
+       as a text file containing the target name, and the resulting "mach-o"
+       fails to load.
+
+    We iterate the entries, detect S_IFLNK in external_attr, and recreate
+    symlinks for those; everything else extracts normally with the mode
+    bits replayed.
     """
     with zipfile.ZipFile(archive) as zf:
         for info in zf.infolist():
-            extracted = Path(zf.extract(info, target))
             mode = info.external_attr >> 16
+            if mode and stat.S_ISLNK(mode):
+                link_target = zf.read(info.filename).decode("utf-8")
+                dest = target / info.filename
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                if dest.is_symlink() or dest.exists():
+                    dest.unlink()
+                dest.symlink_to(link_target)
+                continue
+            extracted = Path(zf.extract(info, target))
             if mode:
                 extracted.chmod(mode & 0o7777)
 

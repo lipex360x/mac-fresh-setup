@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
 
+### Fixed (PostgreSQL — symlinks)
+- Even with Rosetta installed, the very first `initdb` still failed: `dyld: Library not loaded: ... libicudata.68.dylib (slice is not valid mach-o file)`. Root cause: Python's `zipfile.extractall` materialises **symlinks as text files** containing the target path, instead of recreating them as actual symlinks. EDB packages `libicudata.dylib → libicudata.68.dylib` (and several similar) — the broken "symlink" gets loaded as a malformed dylib.
+- Fix: `_extract_zip_preserving_perms` now checks `stat.S_ISLNK(info.external_attr >> 16)` on each entry. Symlink entries are recreated via `Path.symlink_to(link_target)` instead of being written to disk as text.
+
 ### Fixed (PostgreSQL on Apple Silicon)
 - EDB only ships **x86_64 macOS** PostgreSQL binaries — no arm64 native build (confirmed across all 17.x and 18.x). Result: on Apple Silicon Macs the freshly-extracted `initdb` fails with `dyld: Library not loaded: ... (slice is not valid mach-o file)`.
 - Fix: detect Apple Silicon (`platform.machine() == "arm64"`) and ensure Rosetta 2 is present before downloading. Detection via `arch -x86_64 /usr/bin/true` exit code. If missing, runs `sudo softwareupdate --install-rosetta --agree-to-license` (one-time, ~150 MB from Apple).
