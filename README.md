@@ -26,6 +26,20 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 
 `uv` downloads `setup.py`, resolves the inline dependencies (PEP 723) and runs it. An interactive menu appears — pick the modules you want (space to toggle, enter to confirm).
 
+### Bypassing cache
+
+Both `uv` and GitHub's raw CDN cache the script for a few minutes. If you just pushed a change and want the freshest copy, add `--refresh`:
+
+```sh
+uv run --refresh "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py"
+```
+
+If GitHub's CDN is still serving the old blob, append a cache-buster query (the URL still resolves):
+
+```sh
+uv run --refresh "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py?v=$RANDOM"
+```
+
 ## Current stage (v0.1)
 
 - **Grant Root Access** — adds the current user to `/etc/sudoers.d` with `NOPASSWD`.

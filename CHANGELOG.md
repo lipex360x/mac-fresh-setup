@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Module menu shows only the short title; the per-module description no longer renders inline (kept on the `Module` dataclass for future use).
 - Shortened module titles: `Grant Root Access (sudoers NOPASSWD)` → `Grant Root Access`; `SSH Key (RSA 4096)` → `SSH Key`.
 
+### Documentation
+- README: added `--refresh` and cache-buster query usage to bypass `uv` + GitHub raw CDN caching during development.
+
 ## [0.1.0] — 2026-05-16
 
 ### Added
