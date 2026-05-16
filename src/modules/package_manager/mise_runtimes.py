@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 
 import questionary
@@ -100,9 +101,14 @@ def _picker(action: str) -> list[str]:
 
 def install_mise_runtimes() -> None:
     if not _mise_available():
+        installer = (
+            "[bold]Chocolatey packages[/bold] (pick `mise`)"
+            if sys.platform == "win32"
+            else "[bold]Homebrew packages[/bold] (pick `mise`)"
+        )
         console.print(
-            "[red]`mise` not found on PATH.[/red] Install it via "
-            "[bold]Homebrew packages[/bold] (pick `mise`) and reopen the menu."
+            f"[red]`mise` not found on PATH.[/red] Install it via {installer} "
+            "and reopen the menu."
         )
         return
 

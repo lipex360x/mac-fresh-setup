@@ -4,6 +4,7 @@ from models import Category
 from modules.databases import mysql, postgres
 from modules.package_manager import (
     chocolatey_install,
+    chocolatey_packages,
     claude_code,
     homebrew_install,
     homebrew_packages,
@@ -31,6 +32,7 @@ CATEGORIES: list[Category] = [
             homebrew_install.module,
             chocolatey_install.module,
             homebrew_packages.module,
+            chocolatey_packages.module,
             mise_runtimes.module,
         ),
     ),

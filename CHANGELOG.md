@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Chocolatey packages module** (`src/modules/package_manager/chocolatey_packages.py`, `platforms={"win32"}`). Windows analogue to `homebrew_packages` — picker over a curated `ChocoPackage(name, description)` list with Install/Uninstall/Back action menu, already-installed items filtered out via `choco list --limit-output`. Selected packages are batched into a single elevated `choco install -y <pkg1> <pkg2> ...` (or `choco uninstall -y`) launched through `Start-Process -Verb RunAs -Wait` — one UAC prompt for the whole batch. Initial list: `brave`, `7zip`, `gh`, `mise`, `firacode`, `microsoft-windows-terminal`, `docker-desktop`, `vscode`, `intellijidea-community`, `bruno`, `mockoon`, `beekeeper-studio`, `bitwarden`. Wired into the Package manager category between `homebrew_packages` and `mise_runtimes`.
+
+### Changed
+- **Mise runtimes "not found" hint is now platform-aware.** On Windows the message points to `Chocolatey packages (pick mise)` instead of `Homebrew packages`.
+
 ### Fixed
 - **Claude Code `cc` alias and the `claude` binary both invisible in new Git Bash windows.** Two compounded login-shell quirks on Windows: (1) Git Bash opens as a **login shell**, so it reads `~/.bash_profile` (or `~/.profile`) and only loads `~/.bashrc` when that file does an explicit `source ~/.bashrc`; the `cc` alias never made it across. (2) The Claude Code (and uv) installers drop a `~/.local/bin/env` script that prepends `~/.local/bin` to `PATH`, but Git Bash does not source it automatically — so `claude.exe` and `uv.exe` exist on disk yet `claude: command not found`. `claude_code.py` now wires **both** lines into `~/.bash_profile` (idempotent — checks each line separately, only appends what's missing):
 
