@@ -37,7 +37,7 @@ mac-fresh-setup/
 │   └── modules/
 │       ├── system/             # sudoers, xcode_cli, ssh_key
 │       ├── package_manager/    # claude_code, homebrew_install, homebrew_packages, mise_runtimes
-│       └── styling/            # iterm2_prefs, oh_my_zsh, spaceship, zshrc, zsh_stack, vscode_stack
+│       └── styling/            # iterm2_prefs, zsh_stack (+ internals: oh_my_zsh, spaceship, zshrc), vscode_stack
 ├── config/
 │   ├── iterm2/com.googlecode.iterm2.plist   # bundled iTerm2 prefs (XML form)
 │   ├── zsh/.zshrc                            # bundled zsh styling config

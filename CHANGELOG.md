@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `config/zsh/.zshrc` — bundled config replicating the maintainer's styling-only setup: OMZ defaults, Spaceship prompt with custom order and colors, terminal-title hook, zinit auto-bootstrap with three plugins (`fast-syntax-highlighting`, `zsh-autosuggestions`, `zsh-completions`), and conditional `mise activate zsh`. **No** aliases or `~/.zsh_script/*` sourcing — keeping the bundle minimal until the Languages/aliases work lands.
 - Added `font-fira-code` to the curated Homebrew casks list — needed by iTerm2 (which expects `FiraCode-Regular 12` per the bundled plist) and renders Spaceship's powerline glyphs properly.
 
+### Changed (Styling menu)
+- Removed the standalone **Oh-my-zsh**, **Spaceship theme**, and **Custom .zshrc** entries from the Styling menu. The three are always run together via `Zsh stack`, so listing them individually was noise. The source files stay in `src/modules/styling/` because `zsh_stack` still imports them internally — they just don't show up as menu options anymore. Matches the VSCode pattern.
+
 ### Replaced (VSCode → Styling stack)
 - Removed the standalone **Editor** category and its two modules (`vscode_extensions.py` + `vscode_settings.py`).
 - New module **VSCode stack** (`src/modules/styling/vscode_stack.py`) lands under **Styling** instead — matching the iTerm2 / zsh pattern of "one bundle, one click".
