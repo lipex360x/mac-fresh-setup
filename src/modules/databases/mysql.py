@@ -117,6 +117,61 @@ def _state() -> Literal["not-installed", "running", "stopped"]:
     return "running" if _pid_running() else "stopped"
 
 
+def _our_mysqld_pids() -> list[int]:
+    """List PIDs of mysqld.exe processes whose ExecutablePath lives under our install dir.
+
+    Uses PowerShell Get-Process because tasklist doesn't expose Path. Returns
+    [] on non-Windows or when nothing matches. Never touches SYSTEM mysqld
+    services (their binaries live elsewhere).
+    """
+    if sys.platform != "win32":
+        return []
+    target_dir = str(_install_dir()).lower().replace("/", "\\")
+    cmd = [
+        "powershell.exe",
+        "-NoProfile",
+        "-Command",
+        (
+            "Get-Process -Name mysqld -ErrorAction SilentlyContinue | "
+            "ForEach-Object { \"$($_.Id)|$($_.Path)\" }"
+        ),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return []
+    pids: list[int] = []
+    for raw in result.stdout.splitlines():
+        if "|" not in raw:
+            continue
+        pid_str, _, path = raw.strip().partition("|")
+        if not path:
+            continue
+        if path.lower().startswith(target_dir):
+            try:
+                pids.append(int(pid_str))
+            except ValueError:
+                pass
+    return pids
+
+
+def _kill_our_mysqld() -> list[int]:
+    """Kill every mysqld we own under our install dir. Returns killed PIDs."""
+    pids = _our_mysqld_pids()
+    if not pids:
+        return []
+    killed: list[int] = []
+    for pid in pids:
+        mutating_check(f"taskkill /F /PID {pid} (orphan mysqld under our install dir)")
+        result = subprocess.run(
+            ["taskkill", "/F", "/PID", str(pid)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            killed.append(pid)
+    return killed
+
+
 def _rmtree_robust(path: Path) -> list[str]:
     """Remove a tree, retry once after 2s on permission errors, and report leftovers.
 
@@ -296,6 +351,12 @@ def _do_uninstall_keep_data() -> None:
     if _pid_running():
         console.print("[yellow]Stop MySQL first with `mysql-down` before uninstalling.[/yellow]")
         return
+    killed = _kill_our_mysqld()
+    if killed:
+        console.print(
+            f"[yellow]Killed orphan mysqld under our install dir: "
+            f"{', '.join(f'PID {p}' for p in killed)}[/yellow]"
+        )
     version_dir = _INSTALLS / _MYSQL_VERSION
     if version_dir.exists():
         mutating_check(f"rm -rf {version_dir}")
@@ -330,6 +391,15 @@ def _do_uninstall_wipe() -> None:
     if not confirmed:
         console.print("[yellow]Aborted — nothing removed.[/yellow]")
         return
+    killed = _kill_our_mysqld()
+    if killed:
+        console.print(
+            f"[yellow]Killed orphan mysqld under our install dir: "
+            f"{', '.join(f'PID {p}' for p in killed)}[/yellow] "
+            "(waiting 1s for file handles to release...)"
+        )
+        import time as _time
+        _time.sleep(1)
     failures: list[str] = []
     if _ROOT.exists():
         mutating_check(f"rm -rf {_ROOT}")
