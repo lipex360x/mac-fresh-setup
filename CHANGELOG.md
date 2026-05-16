@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-05-16
+
+> Progress checkpoint — not tagged.
+
+### Changed
+- **Project layout** — code moved from a single `setup.py` (217 lines) into `src/`. `setup.py` is now a ~50-line bootstrap that downloads the repository tarball from `codeload.github.com`, extracts it into a temp directory (cleaned up on exit), inserts `src/` at `sys.path[0]`, and runs `app.run`.
+- Structure: `src/{app,console,models,categories}.py` + `src/modules/{sudoers,ssh_key}.py`. No `mac_fresh_setup/` namespace package — a single-app project doesn't need one, imports are flat (`from console import console`).
+- Removed empty skeleton dirs at the repo root (`modules/`, `config/`, `tests/`) that were created at project init but never populated.
+- `MAC_FRESH_SETUP_REF` env var overrides the ref to fetch (default `main`); use this to pin to a tag.
+
+### Why
+- The single-file constraint of `uv run <url>` was forcing all logic into one file. The bootstrap pattern keeps the entry point small (deps still declared in PEP 723) while the rest of the code lives in normal, navigable, testable files. Flat `src/` layout (no package namespace) keeps imports short for a single-app project.
+
 ## [0.1.2] — 2026-05-16
 
 > Progress checkpoint — not tagged.

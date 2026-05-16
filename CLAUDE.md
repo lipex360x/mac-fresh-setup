@@ -11,7 +11,7 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 ## Stack
 
 - Python 3.11+ with PEP 723 inline script metadata
-- `questionary` for interactive multi-select menus
+- `questionary` for interactive single-select menus (hub-and-spoke pattern)
 - `rich` for formatted output
 - No external dependencies beyond what `uv` resolves inline
 
@@ -22,19 +22,31 @@ Reference implementation: [lipex360x/cct-netbeans-setup](https://github.com/lipe
 The setup steps are derived from gist `6b8e69af1b4a7a439dd1ca4baef735a7` (file `1 - Fresh Install.md`).
 Fetch with: `gh gist view 6b8e69af1b4a7a439dd1ca4baef735a7`
 
-## Planned structure
+## Structure
 
 ```
 mac-fresh-setup/
-├── setup.py              # PEP 723 entry point
-├── config/               # YAML lists (brew formulae, casks, vscode extensions)
-├── modules/              # one file per setup step (sudoers, brew, ohmyzsh, ...)
-└── tests/
+├── setup.py                    # PEP 723 bootstrap — downloads tarball, runs app
+├── src/
+│   ├── app.py                  # main menu loop + preflight
+│   ├── console.py              # rich Console singleton
+│   ├── models.py               # Module / Category dataclasses
+│   ├── categories.py           # CATEGORIES registry
+│   └── modules/
+│       ├── sudoers.py          # step: grant root access
+│       └── ssh_key.py          # step: generate SSH key
+├── docs/fresh-install.md       # source-of-truth gist mirrored locally
+├── CHANGELOG.md
+└── README.md
 ```
+
+The bootstrap inserts `src/` at `sys.path[0]`, so modules import each other directly (`from console import console`, `from models import Module`). No top-level package name — there is only one app here, so no namespace is needed.
+
+`setup.py` keeps PEP 723 deps and is the only file fetched by `uv run <url>`; everything else is downloaded as a tarball into a temp dir and imported at runtime.
 
 ## Current status
 
-Skeleton only (`config/`, `modules/`, `tests/` empty). Git initialized on `main`, no commits yet. GitHub repo not created yet — will be public under `lipex360x/mac-fresh-setup` once scope is locked.
+Published at https://github.com/lipex360x/mac-fresh-setup (public). Tag `v0.1.0` is the only release; `[Unreleased]` and intermediate untagged versions (0.1.x) track ongoing progress in CHANGELOG.
 
 ## Candidate modules (from gist)
 

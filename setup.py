@@ -6,210 +6,58 @@
 #     "rich>=13.7",
 # ]
 # ///
-"""mac-fresh-setup — interactive bootstrap for a fresh macOS install."""
+"""Bootstrap for mac-fresh-setup.
+
+Downloads the repository tarball at the configured ref (default: `main`),
+extracts it to a temp directory, imports the `mac_fresh_setup` package and
+runs the interactive menu. The temp directory is removed on exit.
+
+Override the ref with `MAC_FRESH_SETUP_REF` (e.g. a tag like `v0.2.0`).
+"""
 
 from __future__ import annotations
 
-import getpass
+import atexit
+import io
 import os
 import shutil
-import subprocess
 import sys
+import tarfile
 import tempfile
-from dataclasses import dataclass
+import urllib.request
 from pathlib import Path
-from typing import Callable
 
-import questionary
-from rich.console import Console
-from rich.panel import Panel
-
-console = Console()
+REPO = "lipex360x/mac-fresh-setup"
+DEFAULT_REF = "main"
 
 
-@dataclass(frozen=True)
-class Module:
-    key: str
-    title: str
-    description: str
-    run: Callable[[], None]
+def _fetch_tarball(ref: str) -> Path:
+    url = f"https://codeload.github.com/{REPO}/tar.gz/{ref}"
+    request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+    with urllib.request.urlopen(request) as response:
+        data = response.read()
 
+    tmpdir = Path(tempfile.mkdtemp(prefix="mac-fresh-setup-"))
+    atexit.register(shutil.rmtree, tmpdir, ignore_errors=True)
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+        archive.extractall(tmpdir)
 
-def _run(cmd: list[str], *, check: bool = True, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        cmd,
-        check=check,
-        text=True,
-        input=input_text,
-        capture_output=True,
-    )
-
-
-def grant_root_access() -> None:
-    user = getpass.getuser()
-    sudoers_path = Path(f"/etc/sudoers.d/{user}")
-    expected_line = f"{user} ALL=(ALL) NOPASSWD:ALL"
-
-    if sudoers_path.exists():
-        try:
-            content = subprocess.run(
-                ["sudo", "cat", str(sudoers_path)],
-                check=True,
-                text=True,
-                capture_output=True,
-            ).stdout
-        except subprocess.CalledProcessError as exc:
-            console.print(f"[red]Failed to read {sudoers_path}: {exc.stderr}[/red]")
-            raise
-        if expected_line in content:
-            console.print(f"[yellow]sudoers already configured for {user} — skipping.[/yellow]")
-            return
-
-    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".sudoers") as tmp:
-        tmp.write(expected_line + "\n")
-        tmp_path = Path(tmp.name)
-
-    try:
-        validation = subprocess.run(
-            ["sudo", "visudo", "-cf", str(tmp_path)],
-            text=True,
-            capture_output=True,
-        )
-        if validation.returncode != 0:
-            console.print(f"[red]visudo validation failed:[/red] {validation.stderr}")
-            raise RuntimeError("invalid sudoers content")
-
-        subprocess.run(
-            ["sudo", "install", "-m", "0440", "-o", "root", "-g", "wheel", str(tmp_path), str(sudoers_path)],
-            check=True,
-        )
-        console.print(f"[green]Sudoers rule installed at {sudoers_path}.[/green]")
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-
-def generate_ssh_key() -> None:
-    ssh_dir = Path.home() / ".ssh"
-    private_key = ssh_dir / "id_rsa"
-    public_key = ssh_dir / "id_rsa.pub"
-
-    if private_key.exists():
-        console.print(f"[yellow]SSH key already exists at {private_key} — skipping generation.[/yellow]")
-    else:
-        ssh_dir.mkdir(mode=0o700, exist_ok=True)
-        email = questionary.text(
-            "Email for the SSH key comment (used to identify the key on GitHub):",
-            default=os.environ.get("GIT_EMAIL", ""),
-        ).ask()
-        if email is None:
-            console.print("[red]Aborted.[/red]")
-            return
-
-        console.print(Panel.fit(
-            "[bold]ssh-keygen will prompt for a passphrase next.[/bold]\n"
-            "Leave it empty for no passphrase, or type one and confirm it.",
-            border_style="cyan",
-        ))
-        result = subprocess.run(
-            ["ssh-keygen", "-t", "rsa", "-b", "4096", "-C", email, "-f", str(private_key)],
-        )
-        if result.returncode != 0:
-            console.print("[red]ssh-keygen failed.[/red]")
-            return
-
-    private_key.chmod(0o400)
-    if public_key.exists():
-        console.print(Panel(
-            public_key.read_text().strip(),
-            title=f"[bold green]Public key ({public_key})[/bold green]",
-            subtitle="copy this into GitHub → Settings → SSH and GPG keys",
-            border_style="green",
-        ))
-
-
-@dataclass(frozen=True)
-class Category:
-    key: str
-    title: str
-    modules: tuple[Module, ...]
-
-
-CATEGORIES: list[Category] = [
-    Category(
-        key="system",
-        title="System",
-        modules=(
-            Module(
-                key="sudoers",
-                title="Grant Root Access",
-                description="Adds the current user to /etc/sudoers.d with NOPASSWD.",
-                run=grant_root_access,
-            ),
-            Module(
-                key="ssh_key",
-                title="SSH Key",
-                description="Generates ~/.ssh/id_rsa if missing and prints the public key.",
-                run=generate_ssh_key,
-            ),
-        ),
-    ),
-]
-
-
-def preflight() -> None:
-    if sys.platform != "darwin":
-        console.print("[red]This script targets macOS only.[/red]")
-        sys.exit(1)
-    for binary in ("sudo", "ssh-keygen"):
-        if shutil.which(binary) is None:
-            console.print(f"[red]Required binary not found in PATH: {binary}[/red]")
-            sys.exit(1)
-
-
-def _run_module(module: Module) -> None:
-    console.rule(f"[bold]{module.title}[/bold]")
-    try:
-        module.run()
-    except Exception as exc:
-        console.print(f"[red]Module {module.key} failed: {exc}[/red]")
-    console.print()
-    questionary.press_any_key_to_continue("Press any key to return to the menu...").ask()
-
-
-def _category_menu(category: Category) -> None:
-    while True:
-        choices = [questionary.Choice(title=m.title, value=m.key) for m in category.modules]
-        choices.append(questionary.Choice(title="← Back", value="__back"))
-        answer = questionary.select(
-            f"{category.title} — pick a module:",
-            choices=choices,
-        ).ask()
-        if answer in (None, "__back"):
-            return
-        module = next(m for m in category.modules if m.key == answer)
-        _run_module(module)
+    extracted = [p for p in tmpdir.iterdir() if p.is_dir()]
+    if not extracted:
+        raise RuntimeError(f"Tarball at {url} contained no top-level directory.")
+    return extracted[0]
 
 
 def main() -> None:
-    preflight()
-    console.print(Panel.fit(
-        "[bold cyan]mac-fresh-setup[/bold cyan]\n"
-        "Interactive bootstrap for a fresh macOS install.",
-        border_style="cyan",
-    ))
+    ref = os.environ.get("MAC_FRESH_SETUP_REF", DEFAULT_REF)
+    root = _fetch_tarball(ref)
+    src_dir = root / "src"
+    if not src_dir.is_dir():
+        raise RuntimeError(f"Expected `src/` inside the tarball, got: {list(root.iterdir())}")
+    sys.path.insert(0, str(src_dir))
+    from app import run
 
-    while True:
-        choices = [questionary.Choice(title=c.title, value=c.key) for c in CATEGORIES]
-        choices.append(questionary.Choice(title="Exit", value="__exit"))
-        answer = questionary.select(
-            "Pick a category:",
-            choices=choices,
-        ).ask()
-        if answer in (None, "__exit"):
-            console.rule("[bold green]Bye[/bold green]")
-            return
-        category = next(c for c in CATEGORIES if c.key == answer)
-        _category_menu(category)
+    run()
 
 
 if __name__ == "__main__":
