@@ -1,19 +1,22 @@
 from __future__ import annotations
 
+import re
 import subprocess
 import time
 from pathlib import Path
 
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from console import console
 from models import Module
 from runtime import runtime
-from safe import mutating_run
+from safe import mutating_check, mutating_run
 
+_TRIGGER_FILE = Path("/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress")
 _POLL_INTERVAL_SECONDS = 5
 _DEFAULT_TIMEOUT_SECONDS = 900
+_LIST_TIMEOUT_SECONDS = 180
 
 
 def _developer_dir() -> Path | None:
@@ -50,14 +53,80 @@ def _diagnose() -> None:
         )
 
 
-def _wait_for_install(timeout_seconds: int = _DEFAULT_TIMEOUT_SECONDS) -> bool:
-    deadline = time.monotonic() + timeout_seconds
+def _find_clt_label() -> str | None:
+    console.print(
+        "[dim]Querying softwareupdate for the Command Line Tools package "
+        "(can take ~30s)...[/dim]"
+    )
+    try:
+        result = subprocess.run(
+            ["softwareupdate", "--list"],
+            capture_output=True,
+            text=True,
+            timeout=_LIST_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        console.print("[yellow]softwareupdate --list timed out.[/yellow]")
+        return None
+    if result.returncode != 0:
+        return None
+    labels: list[str] = []
+    for line in result.stdout.splitlines():
+        match = re.match(r"^\s*\*\s*Label:\s*(.+)$", line)
+        if match and "Command Line Tools" in match.group(1):
+            labels.append(match.group(1).strip())
+    if not labels:
+        return None
+    return sorted(labels)[-1]
+
+
+def _install_via_softwareupdate(label: str) -> bool:
+    console.print(
+        Panel.fit(
+            f"Installing [bold cyan]{label}[/bold cyan] via "
+            "[dim]softwareupdate[/dim].\n"
+            "Live progress from macOS below — this can take several minutes.",
+            border_style="cyan",
+        )
+    )
+    result = mutating_run(
+        [
+            "sudo",
+            "softwareupdate",
+            "--install",
+            "--no-scan",
+            "--agree-to-license",
+            label,
+        ],
+    )
+    return result.returncode == 0
+
+
+def _install_via_dialog() -> bool:
+    console.print(
+        Panel.fit(
+            "[bold]Falling back to the GUI install dialog.[/bold]\n"
+            "A system dialog will open in a moment — click "
+            "[bold cyan]Install[/bold cyan] and let it finish.\n"
+            "This script will detect completion automatically.",
+            border_style="cyan",
+        )
+    )
+    trigger = mutating_run(
+        ["xcode-select", "--install"],
+        capture_output=True,
+        text=True,
+    )
+    stderr = (trigger.stderr or "").strip()
+    if trigger.returncode != 0 and "already installed" not in stderr:
+        console.print(f"[red]xcode-select --install failed:[/red] {stderr}")
+        return False
+
+    deadline = time.monotonic() + _DEFAULT_TIMEOUT_SECONDS
     with Progress(
         SpinnerColumn(),
-        TextColumn(
-            "[cyan]Waiting for Command Line Tools to finish installing"
-            " (Ctrl+C to abort)..."
-        ),
+        TextColumn("[cyan]Waiting for CLT install (Ctrl+C to abort)"),
+        TimeElapsedColumn(),
         transient=False,
     ) as progress:
         progress.add_task("clt", total=None)
@@ -79,50 +148,37 @@ def install_xcode_cli() -> None:
 
     if runtime.dry_run:
         console.print(
-            "[cyan]DRY RUN[/cyan] would run [dim]xcode-select --install[/dim], "
-            "poll [dim]xcode-select -p[/dim] every "
-            f"{_POLL_INTERVAL_SECONDS}s until clang exists "
-            f"(timeout {_DEFAULT_TIMEOUT_SECONDS // 60} min)."
+            "[cyan]DRY RUN[/cyan] would touch "
+            f"[dim]{_TRIGGER_FILE}[/dim], find the CLT label via "
+            "[dim]softwareupdate --list[/dim], then run "
+            "[dim]sudo softwareupdate --install --agree-to-license <label>[/dim] "
+            "with live output (fallback: [dim]xcode-select --install[/dim] "
+            "with polling)."
         )
         return
 
-    console.print(
-        Panel.fit(
-            "[bold]A system dialog will open in a moment.[/bold]\n"
-            "Click [bold cyan]Install[/bold cyan], accept the licence, "
-            "and let it finish.\n"
-            "This script will detect completion automatically — no key press needed.",
-            border_style="cyan",
-        )
-    )
-
-    trigger = mutating_run(
-        ["xcode-select", "--install"],
-        capture_output=True,
-        text=True,
-    )
-    stderr = (trigger.stderr or "").strip()
-    if trigger.returncode != 0 and "already installed" not in stderr:
-        console.print(f"[red]xcode-select --install failed:[/red] {stderr}")
+    mutating_check(f"touch {_TRIGGER_FILE}")
+    _TRIGGER_FILE.touch()
 
     try:
-        installed = _wait_for_install()
+        label = _find_clt_label()
+        if label is not None:
+            ok = _install_via_softwareupdate(label)
+        else:
+            console.print(
+                "[yellow]No Command Line Tools package found via "
+                "softwareupdate — falling back to GUI dialog.[/yellow]"
+            )
+            ok = _install_via_dialog()
     except KeyboardInterrupt:
         console.print("\n[yellow]Aborted by user.[/yellow]")
-        _diagnose()
-        return
+        ok = False
+    finally:
+        _TRIGGER_FILE.unlink(missing_ok=True)
 
-    if not installed:
-        console.print(
-            f"[red]Timed out after {_DEFAULT_TIMEOUT_SECONDS // 60} minutes. "
-            "Diagnostic:[/red]"
-        )
+    if not ok or not _clt_installed():
+        console.print("[red]Install failed or CLT not detected. Diagnostic:[/red]")
         _diagnose()
-        console.print(
-            "[yellow]If the dialog never appeared, try running "
-            "[dim]sudo xcode-select --install[/dim] manually in another terminal, "
-            "then re-run this module.[/yellow]"
-        )
         return
 
     dev = _developer_dir()
@@ -134,6 +190,6 @@ def install_xcode_cli() -> None:
 module = Module(
     key="xcode_cli",
     title="XCode Command Line Tools",
-    description="Triggers xcode-select --install and polls until CLT is detected.",
+    description="Installs Command Line Tools via softwareupdate (live progress) with GUI dialog fallback.",
     run=install_xcode_cli,
 )
