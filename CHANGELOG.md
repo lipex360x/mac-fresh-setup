@@ -17,6 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `src/modules/package_manager/homebrew_formulae.py` and `homebrew_casks.py` — merged into the single `homebrew_packages` module above.
 
+### Added (Databases category)
+- New category **Databases** with the first module: **MySQL (standalone tarball)** (`src/modules/databases/mysql.py`).
+- Install path: downloads the official tarball from `dev.mysql.com/get/Downloads/MySQL-8.4/mysql-8.4.3-<platform>.tar.gz` (default version `8.4.3`, current LTS), extracts into `~/.local/share/mac-fresh-setup/mysql/installs/8.4.3/`. No brew, no Mise, no sudo, no Docker — fully user-level.
+- Persistent config at `~/.local/share/mac-fresh-setup/mysql/config.json` (mode `0600`): `{ "version", "install_dir", "port", "password" }`.
+- Action picker: Install / Status / Uninstall (keep data) / Uninstall (wipe everything) / ← Back.
+- Daemon control is delegated to **wrappers** copied to `~/.local/bin/`:
+  - `mysql-up [-p PORT] [--pass PASS] [-h]` — initializes data dir on first run, starts `mysqld_safe`, optionally sets/changes the root password (saved to config), updates port (saved to config).
+  - `mysql-down [-h]` — graceful shutdown via `mysqladmin shutdown` (uses saved password if any), SIGTERM fallback.
+  - `mysql-status [-h]` — prints install/data dirs, port, password presence, running PID + socket + log when up.
+  - `mysql-cli [args] [-h]` — execs the `mysql` client connected via the local Unix socket using saved credentials; trailing args forwarded.
+- Wrapper templates live in `config/mysql/wrappers/` and are copied into place during install (and removed on the "wipe" uninstall).
+- **Uninstall (keep data)** removes only the binaries dir (`installs/<version>/`) and the runtime dir — keeps the data dir, config, wrappers. Reinstall same version = come back where you left off, databases intact.
+- **Uninstall (wipe everything)** removes the whole `~/.local/share/mac-fresh-setup/mysql/` tree and all four wrappers from `~/.local/bin/`.
+- Cross-platform-ready: the module branches on `sys.platform` to pick `.tar.gz` vs `.zip` archive and to switch the platform suffix (`macos14-arm64` / `macos14-x86_64` today; `winx64` once Windows lands). The wrapper scripts are pure Python and need no changes for Windows.
+
 ### Added (Uninstall cleanup paths)
 - `Package` dataclass now accepts an optional `cleanup_paths` tuple — paths under `$HOME` to `rm -rf` after a successful `brew uninstall`. `visual-studio-code` ships with: `Library/Application Support/Code`, `Library/Application Support/Code - Insiders`, `.vscode`, `.vscode-insiders`. The uninstall flow first runs `brew uninstall --cask <name>`, then iterates the cleanup paths (only the ones that exist on disk) through `safe.mutating_check` + `shutil.rmtree`. CLAUDE.md table updated to document the new field.
 

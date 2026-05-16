@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from models import Category
+from modules.databases import mysql
 from modules.package_manager import claude_code, homebrew_install, homebrew_packages, mise_runtimes
 from modules.styling import iterm2_prefs, vscode_stack, zsh_stack
 from modules.system import ssh_key, sudoers, xcode_cli
@@ -29,5 +30,10 @@ CATEGORIES: list[Category] = [
             zsh_stack.module,
             vscode_stack.module,
         ),
+    ),
+    Category(
+        key="databases",
+        title="Databases",
+        modules=(mysql.module,),
     ),
 ]

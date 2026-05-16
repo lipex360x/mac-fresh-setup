@@ -1,0 +1,310 @@
+from __future__ import annotations
+
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import zipfile
+from pathlib import Path
+from typing import Literal
+
+import questionary
+from rich.panel import Panel
+
+from console import console
+from models import Module
+from runtime import runtime
+from safe import mutating_check, mutating_run
+
+_MYSQL_VERSION = "8.4.3"
+_DEFAULT_PORT = 3306
+
+_ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
+_INSTALLS = _ROOT / "installs"
+_DATA = _ROOT / "data"
+_RUNTIME = _ROOT / "runtime"
+_CONFIG_PATH = _ROOT / "config.json"
+_BIN_DIR = Path.home() / ".local" / "bin"
+_WRAPPER_NAMES = ("mysql-up", "mysql-down", "mysql-status", "mysql-cli")
+_REPO_WRAPPER_DIR = Path(__file__).resolve().parents[3] / "config" / "mysql" / "wrappers"
+
+
+def _platform_suffix() -> str:
+    if sys.platform != "darwin":
+        return ""
+    arch = "arm64" if platform.machine() == "arm64" else "x86_64"
+    return f"macos14-{arch}"
+
+
+def _archive_ext() -> str:
+    return "zip" if sys.platform == "win32" else "tar.gz"
+
+
+def _archive_basename() -> str:
+    return f"mysql-{_MYSQL_VERSION}-{_platform_suffix()}"
+
+
+def _tarball_url() -> str:
+    major = ".".join(_MYSQL_VERSION.split(".")[:2])
+    return (
+        f"https://dev.mysql.com/get/Downloads/MySQL-{major}/"
+        f"{_archive_basename()}.{_archive_ext()}"
+    )
+
+
+def _install_dir() -> Path:
+    return _INSTALLS / _MYSQL_VERSION / _archive_basename()
+
+
+def _binaries_present() -> bool:
+    return (_install_dir() / "bin" / "mysqld").exists()
+
+
+def _load_config() -> dict | None:
+    if not _CONFIG_PATH.exists():
+        return None
+    return json.loads(_CONFIG_PATH.read_text())
+
+
+def _save_config(cfg: dict) -> None:
+    _ROOT.mkdir(parents=True, exist_ok=True)
+    _CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
+    _CONFIG_PATH.chmod(0o600)
+
+
+def _pid_running() -> bool:
+    pid_file = _RUNTIME / "mysql.pid"
+    if not pid_file.exists():
+        return False
+    try:
+        pid = int(pid_file.read_text().strip())
+        os.kill(pid, 0)
+        return True
+    except (ValueError, ProcessLookupError, PermissionError):
+        return False
+
+
+def _state() -> Literal["not-installed", "running", "stopped"]:
+    if not _binaries_present():
+        return "not-installed"
+    return "running" if _pid_running() else "stopped"
+
+
+def _copy_wrappers() -> None:
+    mutating_check(f"copy MySQL wrappers to {_BIN_DIR}")
+    _BIN_DIR.mkdir(parents=True, exist_ok=True)
+    for name in _WRAPPER_NAMES:
+        src = _REPO_WRAPPER_DIR / name
+        dst = _BIN_DIR / name
+        shutil.copyfile(src, dst)
+        dst.chmod(0o755)
+
+
+def _remove_wrappers() -> None:
+    mutating_check(f"remove MySQL wrappers from {_BIN_DIR}")
+    for name in _WRAPPER_NAMES:
+        (_BIN_DIR / name).unlink(missing_ok=True)
+
+
+def _download_and_extract() -> None:
+    url = _tarball_url()
+    console.print(f"[dim]Downloading {url}[/dim]")
+    with tempfile.NamedTemporaryFile(
+        suffix=f".{_archive_ext()}", delete=False
+    ) as tmp:
+        archive = Path(tmp.name)
+    try:
+        rc = mutating_run(
+            ["curl", "-fL", "--progress-bar", "-o", str(archive), url]
+        ).returncode
+        if rc != 0:
+            raise RuntimeError(f"curl exited with {rc}")
+        target = _INSTALLS / _MYSQL_VERSION
+        target.mkdir(parents=True, exist_ok=True)
+        console.print(f"[dim]Extracting to {target}...[/dim]")
+        if _archive_ext() == "zip":
+            with zipfile.ZipFile(archive) as zf:
+                zf.extractall(target)
+        else:
+            with tarfile.open(archive, "r:gz") as tf:
+                tf.extractall(target)
+    finally:
+        archive.unlink(missing_ok=True)
+
+
+def _do_install() -> None:
+    if _binaries_present():
+        console.print(
+            f"[yellow]Binaries already at {_install_dir()} — skipping download.[/yellow]"
+        )
+    else:
+        _download_and_extract()
+        if not _binaries_present():
+            console.print(
+                f"[red]Extraction finished but mysqld not at {_install_dir()/'bin'/'mysqld'}.[/red]"
+            )
+            return
+
+    cfg = _load_config() or {}
+    cfg.setdefault("version", _MYSQL_VERSION)
+    cfg.setdefault("port", _DEFAULT_PORT)
+    cfg.setdefault("password", "")
+    cfg["install_dir"] = str(_install_dir())
+    _save_config(cfg)
+
+    _copy_wrappers()
+
+    console.print(
+        Panel.fit(
+            f"[green]MySQL {_MYSQL_VERSION} ready.[/green]\n"
+            f"  install dir: [dim]{_install_dir()}[/dim]\n"
+            f"  data dir:    [dim]{_DATA}[/dim] (created on first start)\n"
+            f"  config:      [dim]{_CONFIG_PATH}[/dim]\n"
+            f"  wrappers:    [dim]{_BIN_DIR}/{{{', '.join(_WRAPPER_NAMES)}}}[/dim]\n\n"
+            "[bold]Next:[/bold] [dim]mysql-up[/dim] (default port 3306, no password).\n"
+            "[dim]mysql-up -p 3307 --pass mysecret[/dim] to set both at once.\n"
+            "[dim]mysql-up -h[/dim] for help.",
+            border_style="green",
+            title="Installed",
+        )
+    )
+
+
+def _do_uninstall_keep_data() -> None:
+    if _pid_running():
+        console.print("[yellow]Stop MySQL first with `mysql-down` before uninstalling.[/yellow]")
+        return
+    version_dir = _INSTALLS / _MYSQL_VERSION
+    if version_dir.exists():
+        mutating_check(f"rm -rf {version_dir}")
+        shutil.rmtree(version_dir, ignore_errors=True)
+    if _RUNTIME.exists():
+        mutating_check(f"rm -rf {_RUNTIME}")
+        shutil.rmtree(_RUNTIME, ignore_errors=True)
+    console.print(
+        Panel.fit(
+            f"[green]Binaries removed.[/green]\n"
+            f"  kept: [dim]{_DATA}[/dim]\n"
+            f"  kept: [dim]{_CONFIG_PATH}[/dim]\n"
+            f"  kept: wrappers in [dim]{_BIN_DIR}[/dim]\n\n"
+            "Re-run the Install option to bring the binaries back; "
+            "your databases stay intact.",
+            border_style="green",
+            title="Uninstalled (data kept)",
+        )
+    )
+
+
+def _do_uninstall_wipe() -> None:
+    if _pid_running():
+        console.print("[yellow]Stop MySQL first with `mysql-down` before wiping.[/yellow]")
+        return
+    if _ROOT.exists():
+        mutating_check(f"rm -rf {_ROOT}")
+        shutil.rmtree(_ROOT, ignore_errors=True)
+    _remove_wrappers()
+    console.print(
+        Panel.fit(
+            f"[green]Wiped everything.[/green]\n"
+            f"  removed: [dim]{_ROOT}[/dim]\n"
+            f"  removed: wrappers in [dim]{_BIN_DIR}[/dim]\n\n"
+            "Nothing of MySQL remains on disk.",
+            border_style="green",
+            title="Uninstalled (wiped)",
+        )
+    )
+
+
+def _do_status() -> None:
+    state = _state()
+    cfg = _load_config()
+    if state == "not-installed":
+        console.print("[dim]Not installed.[/dim]")
+        return
+    pid_file = _RUNTIME / "mysql.pid"
+    pid = pid_file.read_text().strip() if pid_file.exists() else "—"
+    lines = [
+        f"  state:       [bold]{state}[/bold]" + (f" (PID {pid})" if state == "running" else ""),
+        f"  version:     {cfg['version']}" if cfg else "",
+        f"  install dir: [dim]{_install_dir()}[/dim]",
+        f"  data dir:    [dim]{_DATA}[/dim]",
+        f"  port:        {cfg['port']}" if cfg else "",
+        f"  password:    {'(set)' if cfg and cfg.get('password') else '(empty)'}" if cfg else "",
+        f"  socket:      [dim]{_RUNTIME / 'mysql.sock'}[/dim]" if state == "running" else "",
+        f"  log:         [dim]{_RUNTIME / 'mysql.log'}[/dim]" if state == "running" else "",
+    ]
+    console.print("\n".join(line for line in lines if line))
+
+
+def manage_mysql() -> None:
+    if sys.platform != "darwin":
+        console.print(
+            f"[red]This module is macOS-only for now.[/red] "
+            "Windows support is planned (same code, different archive)."
+        )
+        return
+
+    if runtime.dry_run:
+        console.print(
+            f"[cyan]DRY RUN[/cyan] would prompt Install / Status / Start / Stop / "
+            "Uninstall(keep) / Uninstall(wipe). Install downloads "
+            f"[dim]{_tarball_url()}[/dim] to [dim]{_install_dir()}[/dim], "
+            f"writes [dim]{_CONFIG_PATH}[/dim], and copies "
+            f"[dim]{', '.join(_WRAPPER_NAMES)}[/dim] into [dim]{_BIN_DIR}[/dim]. "
+            "Daemon control is delegated to the wrappers (mysql-up / mysql-down)."
+        )
+        return
+
+    state = _state()
+    choices: list[questionary.Choice] = []
+    if state == "not-installed":
+        choices.append(
+            questionary.Choice(title=f"Install MySQL {_MYSQL_VERSION}", value="install")
+        )
+    else:
+        choices.append(
+            questionary.Choice(title=f"Status (current: {state})", value="status")
+        )
+        choices.append(
+            questionary.Choice(
+                title="Uninstall (keep data)", value="uninstall-keep"
+            )
+        )
+        choices.append(
+            questionary.Choice(
+                title="Uninstall (wipe everything)", value="uninstall-wipe"
+            )
+        )
+    choices.append(questionary.Choice(title="← Back", value="__back"))
+
+    action = questionary.select(
+        f"MySQL — current state: [{state}]",
+        choices=choices,
+    ).ask()
+
+    if action in (None, "__back"):
+        console.print("[yellow]Returning to menu.[/yellow]")
+        return
+
+    dispatch = {
+        "install": _do_install,
+        "status": _do_status,
+        "uninstall-keep": _do_uninstall_keep_data,
+        "uninstall-wipe": _do_uninstall_wipe,
+    }
+    dispatch[action]()
+
+
+module = Module(
+    key="mysql",
+    title="MySQL (standalone tarball)",
+    description=(
+        f"Standalone MySQL {_MYSQL_VERSION} — official tarball, no brew/sudo/Docker. "
+        "Installs wrappers (mysql-up / -down / -status / -cli) in ~/.local/bin/."
+    ),
+    run=manage_mysql,
+)

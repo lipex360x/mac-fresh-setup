@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""mysql-status: show standalone MySQL state."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
+CONFIG = ROOT / "config.json"
+DATA = ROOT / "data"
+RUNTIME = ROOT / "runtime"
+PID = RUNTIME / "mysql.pid"
+SOCK = RUNTIME / "mysql.sock"
+LOG = RUNTIME / "mysql.log"
+
+
+def _load_config() -> dict | None:
+    if not CONFIG.exists():
+        return None
+    return json.loads(CONFIG.read_text())
+
+
+def _running() -> tuple[bool, str]:
+    if not PID.exists():
+        return False, ""
+    try:
+        pid = int(PID.read_text().strip())
+        os.kill(pid, 0)
+        return True, str(pid)
+    except (ValueError, ProcessLookupError, PermissionError):
+        return False, ""
+
+
+def main() -> None:
+    argparse.ArgumentParser(
+        prog="mysql-status",
+        description="Show standalone MySQL state (mac-fresh-setup).",
+    ).parse_args()
+
+    cfg = _load_config()
+    if cfg is None:
+        sys.exit("MySQL is not installed.")
+
+    print(f"Version:     {cfg['version']}")
+    print(f"Install dir: {cfg['install_dir']}")
+    print(f"Data dir:    {DATA}")
+    print(f"Port:        {cfg['port']}")
+    print(f"Password:    {'(set)' if cfg.get('password') else '(empty)'}")
+
+    running, pid = _running()
+    if running:
+        print(f"State:       running (PID {pid})")
+        print(f"Socket:      {SOCK}")
+        print(f"Log:         {LOG}")
+    else:
+        print("State:       stopped")
+
+
+if __name__ == "__main__":
+    main()

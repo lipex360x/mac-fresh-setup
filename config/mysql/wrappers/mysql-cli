@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""mysql-cli: open the standalone MySQL client connected via the local socket."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path.home() / ".local" / "share" / "mac-fresh-setup" / "mysql"
+CONFIG = ROOT / "config.json"
+RUNTIME = ROOT / "runtime"
+PID = RUNTIME / "mysql.pid"
+SOCK = RUNTIME / "mysql.sock"
+
+
+def _load_config() -> dict:
+    if not CONFIG.exists():
+        sys.exit(
+            "MySQL is not installed. Run mac-fresh-setup → Databases → MySQL → Install."
+        )
+    return json.loads(CONFIG.read_text())
+
+
+def _running() -> bool:
+    if not PID.exists():
+        return False
+    try:
+        pid = int(PID.read_text().strip())
+        os.kill(pid, 0)
+        return True
+    except (ValueError, ProcessLookupError, PermissionError):
+        return False
+
+
+def _bin(cfg: dict, name: str) -> Path:
+    return Path(cfg["install_dir"]) / "bin" / name
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="mysql-cli",
+        description=(
+            "Open the standalone MySQL client connected via the local socket. "
+            "Extra arguments are forwarded to the mysql binary."
+        ),
+    )
+    parser.add_argument(
+        "extra", nargs=argparse.REMAINDER,
+        help="Extra args passed to mysql (e.g. -e 'SELECT 1', a database name).",
+    )
+    args = parser.parse_args()
+
+    cfg = _load_config()
+    if not _running():
+        sys.exit("MySQL is not running. Start it with: mysql-up")
+
+    cmd = [str(_bin(cfg, "mysql")), "-uroot", f"--socket={SOCK}"]
+    if cfg.get("password"):
+        cmd.append(f"-p{cfg['password']}")
+    cmd.extend(args.extra)
+    os.execvp(cmd[0], cmd)
+
+
+if __name__ == "__main__":
+    main()
