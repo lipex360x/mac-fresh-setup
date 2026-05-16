@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **XCode CLI detection** — replaced `pkgutil --pkg-info=com.apple.pkg.CLTools_Executables` with `xcode-select -p` + check that `<dev>/usr/bin/clang` exists. The pkgutil package id varies across macOS versions (and was returning false-negative on macOS Tahoe), the clang-existence check is uniformly reliable for both CLT-only and full-Xcode installs. On failure, the module now prints a diagnostic block (rc, stdout, stderr, dev-dir existence, clang existence) before asking the user to re-run.
+- **XCode CLI wait flow** — replaced "press any key when install finishes" with active polling. After triggering `xcode-select --install`, the module displays a `rich.Progress` spinner and polls `xcode-select -p` + clang existence every 5 seconds (15-minute timeout). Removes a footgun where users hit a key before completing the GUI dialog, leaving CLT half-installed.
 - Migrated `sudoers`, `ssh_key`, `xcode_cli` to use `safe.mutating_run` / `safe.mutating_check` for state-changing calls.
 
 ### How to use
