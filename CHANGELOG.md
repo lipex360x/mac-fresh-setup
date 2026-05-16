@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-16
+
+> Progress checkpoint — not tagged. Tags land only on milestone releases.
+
 ### Changed
 - Module menu shows only the short title; the per-module description no longer renders inline (kept on the `Module` dataclass for future use).
 - Shortened module titles: `Grant Root Access (sudoers NOPASSWD)` → `Grant Root Access`; `SSH Key (RSA 4096)` → `SSH Key`.
