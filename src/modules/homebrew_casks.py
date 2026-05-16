@@ -53,18 +53,23 @@ def install_casks() -> None:
         )
         return
 
-    choices = [
+    choices: list[questionary.Choice] = [
+        questionary.Choice(title="← Back", value="__back"),
+    ]
+    choices.extend(
         questionary.Choice(title=c.name, value=c.name, description=c.description)
         for c in CASKS
-    ]
+    )
     selected = questionary.checkbox(
-        "Pick casks (GUI apps) to install (space to toggle, enter to confirm):",
+        "Pick casks (GUI apps) to install (space to toggle, enter to confirm — "
+        "pick '← Back' alone to return):",
         choices=choices,
     ).ask()
 
-    if not selected:
-        console.print("[yellow]Nothing selected — exiting.[/yellow]")
+    if not selected or "__back" in selected:
+        console.print("[yellow]Returning to menu.[/yellow]")
         return
+    selected = [s for s in selected if s != "__back"]
 
     for name in selected:
         if _is_installed(name):
