@@ -106,6 +106,14 @@ When OS-specific data does belong inside a universal module, use a small dispatc
 ARCHIVE_EXT = {"darwin": "tar.gz", "linux": "tar.gz", "win32": "zip"}[sys.platform]
 ```
 
+## Windows gate: Git for Windows is the only entry point
+
+On Windows, **Git for Windows is a hard prerequisite**. Until `git` AND `bash` are both on `PATH`, `_supported_categories()` overrides the menu to expose only `git_for_windows.module`. No other category renders, no other module runs. This is enforced once at the dispatch layer in `app.py` — downstream modules can assume their tools (`curl`, `tar`, `chmod`, `ssh-keygen`, …) are available.
+
+The `git_for_windows` module downloads the official installer from `github.com/git-for-windows/git/releases`, runs it silently, and tells the user to **close the terminal and re-run from Git Bash**. From git-bash onwards, the full menu becomes available because `git_present()` returns `True`.
+
+No equivalent gate exists on macOS or Linux — the relevant tools come from XCode CLT (macOS) or distro packages (Linux), handled by their own modules without blocking the menu.
+
 ## Conventions
 
 - Each module must be idempotent (check before acting)
