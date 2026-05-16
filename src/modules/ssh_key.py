@@ -9,6 +9,7 @@ from rich.panel import Panel
 
 from console import console
 from models import Module
+from runtime import runtime
 
 
 def generate_ssh_key() -> None:
@@ -20,6 +21,13 @@ def generate_ssh_key() -> None:
         console.print(
             f"[yellow]SSH key already exists at {private_key} — skipping generation.[/yellow]"
         )
+    elif runtime.dry_run:
+        console.print(
+            f"[cyan]DRY RUN[/cyan] would create [dim]{ssh_dir}[/dim] (mode 0700) if missing, "
+            f"prompt for an email, then run:\n  [dim]ssh-keygen -t rsa -b 4096 -C <email> "
+            f"-f {private_key}[/dim]\nand chmod the private key to 0400."
+        )
+        return
     else:
         ssh_dir.mkdir(mode=0o700, exist_ok=True)
         email = questionary.text(

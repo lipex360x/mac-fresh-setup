@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import shutil
 import sys
 
@@ -9,6 +10,20 @@ from rich.panel import Panel
 from categories import CATEGORIES
 from console import console
 from models import Category, Module
+from runtime import runtime
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="mac-fresh-setup",
+        description="Interactive bootstrap for a fresh macOS install.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what each module would do without making any changes.",
+    )
+    return parser.parse_args(argv)
 
 
 def _preflight() -> None:
@@ -45,15 +60,17 @@ def _category_menu(category: Category) -> None:
         _run_module(module)
 
 
-def run() -> None:
+def run(argv: list[str] | None = None) -> None:
+    args = _parse_args(argv)
+    runtime.dry_run = args.dry_run
     _preflight()
-    console.print(
-        Panel.fit(
-            "[bold cyan]mac-fresh-setup[/bold cyan]\n"
-            "Interactive bootstrap for a fresh macOS install.",
-            border_style="cyan",
-        )
+    banner = (
+        "[bold cyan]mac-fresh-setup[/bold cyan]\n"
+        "Interactive bootstrap for a fresh macOS install."
     )
+    if runtime.dry_run:
+        banner += "\n[bold yellow]DRY RUN — no changes will be made.[/bold yellow]"
+    console.print(Panel.fit(banner, border_style="cyan"))
 
     while True:
         choices = [questionary.Choice(title=c.title, value=c.key) for c in CATEGORIES]

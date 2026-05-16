@@ -7,6 +7,7 @@ from pathlib import Path
 
 from console import console
 from models import Module
+from runtime import runtime
 
 
 def grant_root_access() -> None:
@@ -28,6 +29,14 @@ def grant_root_access() -> None:
         if expected_line in content:
             console.print(f"[yellow]Sudoers already configured for {user} — skipping.[/yellow]")
             return
+
+    if runtime.dry_run:
+        console.print(
+            f"[cyan]DRY RUN[/cyan] would write:\n  [dim]{expected_line}[/dim]\n"
+            f"to [dim]{sudoers_path}[/dim] (mode 0440, owner root:wheel) "
+            f"after [dim]visudo -cf[/dim] validation."
+        )
+        return
 
     with tempfile.NamedTemporaryFile("w", delete=False, suffix=".sudoers") as tmp:
         tmp.write(expected_line + "\n")

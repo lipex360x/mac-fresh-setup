@@ -26,6 +26,16 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 
 `uv` downloads `setup.py`, resolves the inline dependencies (PEP 723) and runs it. An interactive menu appears — pick the modules you want (space to toggle, enter to confirm).
 
+### Dry-run
+
+Inspect what each module would do without making changes:
+
+```sh
+uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py" -- --dry-run
+```
+
+The `--` separates `uv`'s flags from the script's flags. Each module prints the commands it would run, then returns without touching the system.
+
 ### Bypassing cache
 
 Both `uv` and GitHub's raw CDN cache the script for a few minutes. If you just pushed a change and want the freshest copy, add `--refresh`:

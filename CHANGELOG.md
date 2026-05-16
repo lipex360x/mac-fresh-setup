@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `--dry-run` flag: each module checks state, prints what it **would** do, then returns without touching the system. Useful to verify idempotency and inspect generated commands.
+- `src/runtime.py` — module-level `Runtime` dataclass carrying global flags. `app.py` sets `runtime.dry_run` from `argparse` before the menu starts; modules read it on entry.
+
+### How to use
+
+```sh
+uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.py" -- --dry-run
+```
+
+The `--` separator is required so `uv` doesn't try to consume `--dry-run` itself.
+
 ## [0.1.3] — 2026-05-16
 
 > Progress checkpoint — not tagged.
