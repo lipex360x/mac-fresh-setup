@@ -26,7 +26,6 @@ RUNTIMES: list[Runtime] = [
     Runtime("Java LTS (Temurin 25)", "java@temurin-25", "Adoptium Temurin JDK 25 — current Java LTS (Sep 2025)"),
     Runtime("Maven latest", "maven@latest", "Apache Maven — JVM project management and build tool (requires Java)"),
     Runtime("Gradle latest", "gradle@latest", "Gradle — JVM and multi-language build tool (requires Java)"),
-    Runtime("PHP 8.3", "php@8.3", "PHP 8.3 — current active branch (via mise/asdf-php plugin)"),
 ]
 
 

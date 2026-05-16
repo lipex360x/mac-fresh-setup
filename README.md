@@ -14,7 +14,7 @@
   - [Running Java](#running-java)
   - [Running Maven](#running-maven)
   - [Running Gradle](#running-gradle)
-  - [Running PHP](#running-php)
+  - [Running PHP (Laravel Herd)](#running-php-laravel-herd)
 - [Adding new items](#adding-new-items)
 - [Bootstrap flags and overrides](#bootstrap-flags-and-overrides)
 - [See also](#see-also)
@@ -81,7 +81,7 @@ uv run "https://raw.githubusercontent.com/lipex360x/mac-fresh-setup/main/setup.p
 - **Claude Code** — installs Anthropic's CLI via the official `curl https://claude.ai/install.sh | bash` route. No brew, no Node required.
 - **Homebrew** — runs the official install script with `NONINTERACTIVE=1`, then appends `brew shellenv` to `~/.zprofile`.
 - **Homebrew packages** — prompts **Install / Uninstall / Back**, then shows only the actionable items (install mode hides already-installed, uninstall mode hides not-installed). Formulae and casks live in the same list, casks tagged `[cask]`. Cask-specific uninstall cleanup paths are honoured (e.g. VSCode wipes `~/Library/Application Support/Code` etc.).
-- **Mise runtimes** — same Install / Uninstall flow over `mise` runtimes: Node.js LTS, Bun latest, Java LTS (Temurin 25), Maven latest, Gradle latest, PHP 8.3.
+- **Mise runtimes** — same Install / Uninstall flow over `mise` runtimes: Node.js LTS, Bun latest, Java LTS (Temurin 25), Maven latest, Gradle latest. (PHP lives in Homebrew packages as **Laravel Herd** — pre-compiled, no build deps.)
 
 **Styling**
 - **iTerm2 preferences** — downloads the bundled plist from `config/iterm2/com.googlecode.iterm2.plist` and replaces `~/Library/Preferences/com.googlecode.iterm2.plist`. Backs up the existing file, runs `killall cfprefsd`.
@@ -99,7 +99,7 @@ All modules are idempotent — re-running is safe.
 ## Runtime runbooks
 
 > [!IMPORTANT]
-> After installing **any** runtime (Node, Bun, Java, Maven, Gradle, PHP…), open a **new** terminal so `~/.zshrc` runs and `mise activate zsh` puts the shims on your `PATH`. `which <tool>` should report the mise shim at `~/.local/share/mise/shims/...`. All runbooks below assume you've already done this.
+> After installing **any** mise runtime (Node, Bun, Java, Maven, Gradle), open a **new** terminal so `~/.zshrc` runs and `mise activate zsh` puts the shims on your `PATH`. `which <tool>` should report the mise shim at `~/.local/share/mise/shims/...`. All runbooks below assume you've already done this. (PHP is the exception — it ships as **Laravel Herd**, a standalone app, no shell wiring needed.)
 
 ### Running Node.js
 
@@ -334,30 +334,27 @@ gradle dependencies                                          # full dependency t
 | Project uses the wrapper (`./gradlew`) | Use the project's `./gradlew` instead of the system `gradle` — the wrapper pins the exact Gradle version per project. The system `gradle` is for `gradle init` and ad-hoc tasks. |
 | Slow first run | Gradle downloads its distribution + plugin cache into `~/.gradle/` on first use — that's normal. |
 
-### Running PHP
+### Running PHP (Laravel Herd)
 
-> [!WARNING]
-> Mise installs PHP **by compiling it from source** via the `asdf-php` plugin. First install takes 5–10 minutes and needs C build tools.
+PHP ships as **Laravel Herd** — a self-contained macOS app that bundles multiple PHP versions, composer, nginx, and dnsmasq. No compile, no brew dependency chain, no shell-rc wiring. Installs through the regular Homebrew packages picker.
 
-#### 1. Install the build dependencies first
+#### 1. Install via the menu
 
-> [!NOTE]
-> Skipping this step is the #1 cause of PHP compile failures mid-build. Run **before** picking PHP in the menu.
+Package manager → Homebrew packages → Install → check `herd` → enter. `brew install --cask herd` runs.
 
-```sh
-brew install autoconf bison re2c gd libsodium pkg-config libpq libzip libxml2 \
-  openssl@3 libiconv libjpeg curl
-```
+#### 2. First-run setup
 
-#### 2. Install via the menu
-
-Package manager → Mise runtimes → Install → check `PHP 8.3` → enter. Live `mise use -g php@8.3` output streams below.
+Open **Herd** from Spotlight or `/Applications`. On first launch it:
+- Drops `php`, `composer`, `node` shims into `/usr/local/bin/`
+- Asks which PHP versions to install (8.1 / 8.2 / 8.3 / 8.4 — multiple OK, picked from GUI)
+- Wires `*.test` domains to the local Herd nginx via dnsmasq
 
 #### 3. Verify
 
 ```sh
-which php       # expected: /Users/you/.local/share/mise/shims/php
-php --version   # expected: PHP 8.3.x (cli)
+which php       # expected: /usr/local/bin/php (Herd shim)
+php --version   # expected: PHP 8.x.x (cli) (built: ...) — Laravel Herd build
+composer --version
 ```
 
 #### 4. Run something
@@ -366,16 +363,21 @@ php --version   # expected: PHP 8.3.x (cli)
 php script.php                    # one-off script
 php -a                            # REPL
 php -S localhost:8000             # built-in dev server serving cwd at http://localhost:8000
+
+# Or use Herd's bundled nginx — drop a Laravel project into the watched dir
+# (default ~/Herd) and it's served at http://<project>.test automatically.
 ```
+
+Switch PHP versions per project via Herd's GUI or `herd use 8.2` inside the project directory.
 
 #### Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| Compile failed mid-build | Re-run the `brew install` block above, then run the Install option again to retry the build. |
-| `php` not found after a successful install | You forgot to reopen the shell — see the IMPORTANT admonition above. |
-| Wrong PHP version active | `mise current php` shows the global default; `mise use -g php@8.3` re-pins. |
-| Need a different version | Edit `Runtime("PHP 8.3", "php@8.3", ...)` in `src/modules/package_manager/mise_runtimes.py` (e.g. `php@8.4`, `php@8.2`) and re-run the module. |
+| `php` not found after install | Open the Herd app at least once — the shims are dropped on first launch, not by the cask itself. |
+| Want a specific PHP version | Herd GUI → Settings → PHP → install/switch versions. No code edits needed. |
+| Conflict with old brew `php` formula | `brew uninstall php` first; Herd's `/usr/local/bin/php` shim then wins on PATH. |
+| Want full uninstall | Homebrew packages → Uninstall → check `herd`. Cleanup paths (`~/Library/Application Support/Herd`, `~/.config/herd-lite`) are wiped automatically. |
 
 <div align="right"><a href="#mac-fresh-setup">↑ Back to top</a></div>
 

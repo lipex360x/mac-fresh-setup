@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **PHP delivery: mise → Laravel Herd.** Dropped `Runtime("PHP 8.3", "php@8.3", ...)` from `src/modules/package_manager/mise_runtimes.py`. PHP was the only mise runtime that compiled from source (via `asdf-php`), which required 12 brew formulae as build dependencies (`autoconf`, `bison`, `re2c`, `gd`, `libsodium`, `pkg-config`, `libpq`, `libzip`, `libxml2`, `openssl@3`, `libiconv`, `libjpeg`, `curl`) and 5–10 min compile time. Replaced with `Package("herd", "cask", ...)` in `homebrew_packages.py` — Laravel Herd is a pre-compiled standalone app bundling PHP (multiple versions side-by-side), composer, nginx, and dnsmasq. Zero build deps, instant install. README `Running PHP` section rewritten around the Herd flow; `cleanup_paths=("Library/Application Support/Herd", ".config/herd-lite")` wired so uninstall wipes state cleanly.
+
 ### Fixed
 - **Mise picker** — `rt.spec` was wrapped in literal `[dim]...[/dim]` rich markup tags, which questionary renders as plain text (it doesn't parse rich markup). The spec is now shown as plain `(node@lts)` without leaking tags.
 

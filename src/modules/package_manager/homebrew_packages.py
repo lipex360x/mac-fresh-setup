@@ -33,6 +33,15 @@ PACKAGES: list[Package] = [
     Package("mise", "formula", "Polyglot runtime/version manager — handles node/python/java (asdf successor)"),
     Package("font-fira-code", "cask", "Fira Code monospace font with programming ligatures"),
     Package("docker-desktop", "cask", "Docker Desktop for Mac — containers + compose"),
+    Package(
+        "herd",
+        "cask",
+        "Laravel Herd — bundled PHP runtime + nginx + composer, multiple PHP versions side-by-side (replaces mise+brew PHP compile flow)",
+        cleanup_paths=(
+            "Library/Application Support/Herd",
+            ".config/herd-lite",
+        ),
+    ),
     Package("iterm2", "cask", "Drop-in replacement for Terminal.app with panes, profiles, ligatures"),
     Package(
         "visual-studio-code",
