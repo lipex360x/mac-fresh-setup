@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`mise_runtimes` would hit the same WinError 2 once mise was installed.** Mise on Windows arrives as a `.cmd` shim (when installed via Scoop), and Python's `subprocess.run(["mise", ...])` skips `PATHEXT` exactly like Scoop did. Added a `_mise_cmd(args)` helper that prefixes `["cmd", "/c", ...]` on Windows; the idempotency check (`mise current`) and the install/uninstall calls (`mise use -g` / `mise uninstall`) both route through it.
+- **Final "open a new shell" hint hardcoded `mise activate zsh`.** Now branches: `zsh` on macOS, `bash` on Linux and Windows (Git Bash). The misleading hint on Windows had users running `mise activate zsh` and getting "shell zsh not supported".
+
+### Fixed
 - **`scoop_packages` failed with `WinError 2 — The system cannot find the file specified`.** Python's `subprocess.run(["scoop", ...])` uses `CreateProcessW`, which only resolves `.exe` extensions — it does **not** honor `PATHEXT`. `scoop` on disk is `scoop.cmd` (a shim that delegates to PowerShell), so the bare-name lookup never found it. Added a `_scoop_cmd(args)` helper that prefixes `["cmd", "/c", ...]` on Windows and falls through unchanged elsewhere; all four call sites (`scoop list`, `scoop bucket list`, `scoop bucket add`, `scoop install/uninstall`) now route through it.
 
 ### Fixed

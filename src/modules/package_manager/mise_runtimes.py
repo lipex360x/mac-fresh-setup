@@ -34,13 +34,26 @@ def _mise_available() -> bool:
     return shutil.which("mise") is not None
 
 
+def _mise_cmd(args: list[str]) -> list[str]:
+    """Build a subprocess argv that invokes mise.
+
+    On Windows mise is delivered as a `.cmd` shim (Scoop) or `.exe` — Python's
+    CreateProcess only auto-resolves `.exe`. Prefix with `cmd /c` so the
+    `.cmd` form is found by name.
+    """
+    base = ["mise", *args]
+    if sys.platform == "win32":
+        return ["cmd", "/c", *base]
+    return base
+
+
 def _tool_from_spec(spec: str) -> str:
     return spec.split("@", 1)[0]
 
 
 def _has_global(tool: str) -> bool:
     result = subprocess.run(
-        ["mise", "current", tool],
+        _mise_cmd(["current", tool]),
         capture_output=True,
         text=True,
     )
@@ -133,9 +146,9 @@ def install_mise_runtimes() -> None:
 
     for spec in selected:
         if action == "install":
-            cmd = ["mise", "use", "-g", spec]
+            cmd = _mise_cmd(["use", "-g", spec])
         else:
-            cmd = ["mise", "uninstall", spec]
+            cmd = _mise_cmd(["uninstall", spec])
         console.rule(f"[bold]{' '.join(cmd)}[/bold]")
         result = mutating_run(cmd)
         if result.returncode != 0:
@@ -151,9 +164,10 @@ def install_mise_runtimes() -> None:
 
     console.rule("[bold green]Done[/bold green]")
     if action == "install":
+        shell_name = "zsh" if sys.platform == "darwin" else "bash"
         console.print(
-            "[dim]Open a new shell (or run `mise activate zsh` in this one) so the "
-            "runtimes land on PATH.[/dim]"
+            f"[dim]Open a new shell (or run `mise activate {shell_name}` in this one) "
+            "so the runtimes land on PATH.[/dim]"
         )
 
 
